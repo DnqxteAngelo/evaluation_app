@@ -1,21 +1,23 @@
 // ignore_for_file: avoid_print, use_build_context_synchronously
 
 import 'dart:convert';
+
 import 'package:evaluation_app/components/select.dart';
 import 'package:evaluation_app/components/summaryfield.dart';
+import 'package:evaluation_app/components/toast.dart';
 import 'package:evaluation_app/models/models.dart';
 import 'package:evaluation_app/pages/evaluation_page.dart';
 import 'package:intl/intl.dart';
-
-import 'package:shadcn_flutter/shadcn_flutter.dart';
 import 'package:http/http.dart' as http;
+import 'package:shadcn_flutter/shadcn_flutter.dart';
 
 class ProfilePage extends StatefulWidget {
   final User user;
 
-  ProfilePage({
+  const ProfilePage({
+    Key? key,
     required this.user,
-  });
+  }) : super(key: key);
 
   @override
   _ProfilePageState createState() => _ProfilePageState();
@@ -24,12 +26,17 @@ class ProfilePage extends StatefulWidget {
 class _ProfilePageState extends State<ProfilePage> {
   final StepperController controller = StepperController();
   final TextEditingController _subjectController = TextEditingController();
+
+  // Nullable selection variables
   int? _selectedTeacher;
   int? _selectedCollege;
   int? _selectedDepartment;
   int? _selectedSemester;
   int? _selectedYear;
   String? _selectedModality;
+  DateTime? _observationDate;
+
+  // Data lists
   List<Teacher> _teachers = [];
   List<College> _colleges = [];
   List<Department> _departments = [];
@@ -37,19 +44,33 @@ class _ProfilePageState extends State<ProfilePage> {
   List<Year> _years = [];
   final List<String> _modality = ["FLEX", "RAD"];
 
-  DateTime? _observationDate;
+  bool _isLoading = true;
+  String _errorMessage = '';
 
   @override
   void initState() {
     super.initState();
-    _fetchTeachers();
-    _fetchColleges();
-    _fetchDepartments();
-    _fetchSemesters();
-    _fetchYears();
+    _initializeData();
   }
 
-  Future<List<T>> fetchSelect<T>({
+  Future<void> _initializeData() async {
+    setState(() => _isLoading = true);
+    try {
+      await Future.wait([
+        _fetchTeachers(),
+        _fetchColleges(),
+        _fetchDepartments(),
+        _fetchSemesters(),
+        _fetchYears(),
+      ]);
+    } catch (e) {
+      setState(() => _errorMessage = 'Failed to load data. Please try again.');
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<List<T>> _fetchSelect<T>({
     required String url,
     required Map<String, String> body,
     required T Function(Map<String, dynamic>) fromJson,
@@ -64,16 +85,16 @@ class _ProfilePageState extends State<ProfilePage> {
         final List<dynamic> data = json.decode(response.body);
         return data.map((item) => fromJson(item)).toList();
       } else {
-        throw Exception('Failed to load data');
+        throw Exception('Failed to load ${T.toString()}');
       }
     } catch (e) {
-      print(e);
+      print('Error fetching ${T.toString()}: $e');
       return [];
     }
   }
 
   Future<void> _fetchTeachers() async {
-    List<Teacher> teachers = await fetchSelect<Teacher>(
+    final teachers = await _fetchSelect<Teacher>(
       url: 'http://localhost/evaluation_app_api/teacher.php',
       body: {'operation': 'getTeacher'},
       fromJson: (json) => Teacher(
@@ -81,14 +102,11 @@ class _ProfilePageState extends State<ProfilePage> {
         teacherName: json['teacher_fullname'],
       ),
     );
-
-    setState(() {
-      _teachers = teachers;
-    });
+    setState(() => _teachers = teachers);
   }
 
   Future<void> _fetchColleges() async {
-    List<College> colleges = await fetchSelect<College>(
+    final colleges = await _fetchSelect<College>(
       url: 'http://localhost/evaluation_app_api/college.php',
       body: {'operation': 'getCollege'},
       fromJson: (json) => College(
@@ -96,14 +114,11 @@ class _ProfilePageState extends State<ProfilePage> {
         collegeName: json['college_name'],
       ),
     );
-
-    setState(() {
-      _colleges = colleges;
-    });
+    setState(() => _colleges = colleges);
   }
 
   Future<void> _fetchDepartments() async {
-    List<Department> departments = await fetchSelect<Department>(
+    final departments = await _fetchSelect<Department>(
       url: 'http://localhost/evaluation_app_api/department.php',
       body: {'operation': 'getDepartment'},
       fromJson: (json) => Department(
@@ -111,14 +126,11 @@ class _ProfilePageState extends State<ProfilePage> {
         deptName: json['dept_name'],
       ),
     );
-
-    setState(() {
-      _departments = departments;
-    });
+    setState(() => _departments = departments);
   }
 
   Future<void> _fetchSemesters() async {
-    List<Semester> semesters = await fetchSelect<Semester>(
+    final semesters = await _fetchSelect<Semester>(
       url: 'http://localhost/evaluation_app_api/evaluation.php',
       body: {'operation': 'getSemester'},
       fromJson: (json) => Semester(
@@ -126,14 +138,11 @@ class _ProfilePageState extends State<ProfilePage> {
         semesterName: json['sem_name'],
       ),
     );
-
-    setState(() {
-      _semesters = semesters;
-    });
+    setState(() => _semesters = semesters);
   }
 
   Future<void> _fetchYears() async {
-    List<Year> years = await fetchSelect<Year>(
+    final years = await _fetchSelect<Year>(
       url: 'http://localhost/evaluation_app_api/evaluation.php',
       body: {'operation': 'getYear'},
       fromJson: (json) => Year(
@@ -141,34 +150,23 @@ class _ProfilePageState extends State<ProfilePage> {
         yearLevel: json['year_level'],
       ),
     );
-
-    setState(() {
-      _years = years;
-    });
+    setState(() => _years = years);
   }
 
-  Future<int?> addEvaluation({
-    required int userId,
-    required int teacherId,
-    required int semesterId,
-    required String subject,
-    required DateTime date,
-    required String modality,
-    required int yearId,
-  }) async {
+  Future<int?> _addEvaluation() async {
+    if (!_validateData()) return null;
+
     final url = Uri.parse('http://localhost/evaluation_app_api/evaluation.php');
+    final formattedDate = DateFormat('yyyy-MM-dd').format(_observationDate!);
 
-    String formattedDate =
-        "${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}";
-
-    Map<String, dynamic> jsonData = {
-      'eval_userId': userId,
-      'eval_teacherId': teacherId,
-      'eval_semesterId': semesterId,
-      'eval_subject': subject,
-      'eval_date': formattedDate, // Convert DateTime to string
-      'eval_modality': modality,
-      'eval_yearId': yearId,
+    final Map<String, dynamic> jsonData = {
+      'eval_userId': widget.user.userId,
+      'eval_teacherId': _selectedTeacher,
+      'eval_semesterId': _selectedSemester,
+      'eval_subject': _subjectController.text,
+      'eval_date': formattedDate,
+      'eval_modality': _selectedModality,
+      'eval_yearId': _selectedYear,
     };
 
     try {
@@ -180,39 +178,596 @@ class _ProfilePageState extends State<ProfilePage> {
         },
       );
 
-      print(response.body);
-
       if (response.statusCode == 200) {
         final result = json.decode(response.body);
         if (result['success']) {
-          print('Evaluation added successfully');
-          return int.parse(result['evalId']); // Return the evalId
-        } else {
-          print('Failed to add evaluation');
-          return null;
+          return int.parse(result['evalId']);
         }
-      } else {
-        throw Exception(
-            'Failed to add evaluation. Status code: ${response.statusCode}');
       }
     } catch (e) {
       print('Error adding evaluation: $e');
-      return null;
     }
+    return null;
+  }
+
+  bool _validateTeacherProfile() {
+    return _selectedTeacher != null &&
+        _selectedCollege != null &&
+        _selectedDepartment != null;
+  }
+
+  bool _validateObservationDetails() {
+    return _selectedSemester != null &&
+        _selectedYear != null &&
+        _selectedModality != null &&
+        _observationDate != null &&
+        _subjectController.text.isNotEmpty;
+  }
+
+  bool _validateData() {
+    return _selectedTeacher != null &&
+        _selectedCollege != null &&
+        _selectedDepartment != null &&
+        _selectedSemester != null &&
+        _selectedYear != null &&
+        _selectedModality != null &&
+        _observationDate != null &&
+        _subjectController.text.isNotEmpty;
+  }
+
+  Widget _buildTeacherProfileStep(bool isMobile) {
+    return StepContainer(
+      actions: [
+        const SecondaryButton(
+          child: Text('Cancel'),
+        ),
+        PrimaryButton(
+          onPressed:
+              _validateTeacherProfile() ? () => controller.nextStep() : null,
+          child: const Text('Next'),
+        ),
+      ],
+      child: Column(
+        children: [
+          Container(
+            width: 700,
+            child: Card(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Teacher Profile').semiBold(),
+                  const SizedBox(height: 4),
+                  const Text("Fill out the teacher's information.")
+                      .muted()
+                      .small(),
+                  const SizedBox(height: 24),
+                  LabeledSelect<int>(
+                    label: 'Teacher',
+                    value: _selectedTeacher,
+                    items:
+                        _teachers.map((teacher) => teacher.teacherId).toList(),
+                    onChanged: (value) =>
+                        setState(() => _selectedTeacher = value),
+                    isMobile: isMobile,
+                    itemDisplay: (id) {
+                      final teacher = _teachers.firstWhere(
+                        (t) => t.teacherId == id,
+                        orElse: () =>
+                            Teacher(teacherId: 0, teacherName: 'Unknown'),
+                      );
+                      return teacher.teacherName;
+                    },
+                  ),
+                  const SizedBox(height: 24),
+                  LabeledSelect<int>(
+                    label: 'College',
+                    value: _selectedCollege,
+                    items:
+                        _colleges.map((college) => college.collegeId).toList(),
+                    onChanged: (value) {
+                      setState(() {
+                        _selectedCollege = value;
+                      });
+                    },
+                    isMobile: isMobile,
+                    itemDisplay: (id) {
+                      final college = _colleges
+                          .firstWhere((college) => college.collegeId == id);
+                      return college.collegeName;
+                      // Return the full name for display
+                    },
+                  ),
+                  const SizedBox(height: 24),
+                  LabeledSelect<int>(
+                    label: 'Department',
+                    value: _selectedDepartment,
+                    items: _departments
+                        .map((department) => department.deptId)
+                        .toList(),
+                    onChanged: (value) {
+                      setState(() {
+                        _selectedDepartment = value;
+                      });
+                    },
+                    isMobile: isMobile,
+                    itemDisplay: (id) {
+                      final department = _departments
+                          .firstWhere((department) => department.deptId == id);
+                      return department.deptName;
+                      // Return the full name for display
+                    },
+                  ),
+                  // Add similar LabeledSelect widgets for College and Department
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildObservationDetailsStep(bool isMobile) {
+    return StepContainer(
+      actions: [
+        SecondaryButton(
+          child: const Text('Back'),
+          onPressed: () => controller.previousStep(),
+        ),
+        PrimaryButton(
+          onPressed: _validateObservationDetails()
+              ? () => controller.nextStep()
+              : null,
+          child: const Text('Next'),
+        ),
+      ],
+      child: Column(
+        children: [
+          Container(
+            width: 700,
+            child: Card(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Observation Details').semiBold(),
+                  const SizedBox(height: 4),
+                  const Text("Fill out the observation details.")
+                      .muted()
+                      .small(),
+                  const SizedBox(height: 24),
+                  isMobile
+                      ? Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text("Observer").semiBold().small(),
+                            const SizedBox(
+                              height: 8,
+                            ),
+                            TextField(
+                              readOnly: true,
+                              initialValue: widget.user.userFullName,
+                            ),
+                          ],
+                        )
+                      : Row(
+                          children: [
+                            Expanded(
+                              flex: 2,
+                              child: const Text("Observer").semiBold().small(),
+                            ),
+                            const SizedBox(
+                              width: 16,
+                            ),
+                            Expanded(
+                              flex: 3,
+                              child: TextField(
+                                readOnly: true,
+                                initialValue: widget.user.userFullName,
+                                // placeholder: 'Enter subject',
+                              ),
+                            ),
+                          ],
+                        ),
+                  const SizedBox(height: 24),
+                  isMobile
+                      ? Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text("Date")
+                                .semiBold()
+                                .small(), // Reusable label
+                            const SizedBox(height: 8),
+                            Container(
+                              width: double.infinity,
+                              child: DatePicker(
+                                value: _observationDate,
+                                mode: PromptMode.popover,
+                                stateBuilder: (date) {
+                                  if (date.isAfter(DateTime.now())) {
+                                    return DateState.disabled;
+                                  }
+                                  return DateState.enabled;
+                                },
+                                onChanged: (value) {
+                                  setState(() {
+                                    _observationDate = value;
+                                  });
+                                },
+                              ),
+                            ),
+                          ],
+                        )
+                      : Row(
+                          children: [
+                            Expanded(
+                              flex:
+                                  2, // You can adjust the flex for better proportions
+                              child: const Text("Date").semiBold().small(),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              flex:
+                                  3, // You can adjust the flex for better proportions
+                              child: DatePicker(
+                                value: _observationDate,
+                                mode: PromptMode.popover,
+                                stateBuilder: (date) {
+                                  if (date.isAfter(DateTime.now())) {
+                                    return DateState.disabled;
+                                  }
+                                  return DateState.enabled;
+                                },
+                                onChanged: (value) {
+                                  setState(() {
+                                    _observationDate = value;
+                                  });
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                  const SizedBox(height: 24),
+                  isMobile
+                      ? Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Subject').semiBold().small(),
+                            const SizedBox(height: 4),
+                            TextField(
+                              controller: _subjectController,
+                              placeholder: 'Enter subject',
+                            ),
+                          ],
+                        )
+                      : Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Expanded(
+                              flex: 2,
+                              child: const Text('Subject').semiBold().small(),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              flex: 3,
+                              child: TextField(
+                                controller: _subjectController,
+                                placeholder: 'Enter subject',
+                              ),
+                            ),
+                          ],
+                        ),
+                  const SizedBox(height: 24),
+                  LabeledSelect<int>(
+                    label: 'Semester',
+                    value: _selectedSemester,
+                    items: _semesters.map((s) => s.semesterId).toList(),
+                    onChanged: (value) {
+                      setState(() {
+                        _selectedSemester = value;
+                      });
+                    },
+                    isMobile: isMobile,
+                    itemDisplay: (id) {
+                      final semester =
+                          _semesters.firstWhere((s) => s.semesterId == id);
+                      return '${semester.semesterName} Semester';
+                      // Return the full name for display
+                    },
+                  ),
+                  const SizedBox(height: 24),
+                  LabeledSelect<int>(
+                    label: 'Year Level',
+                    value: _selectedYear,
+                    items: _years.map((y) => y.yearId).toList(),
+                    onChanged: (value) {
+                      setState(() {
+                        _selectedYear = value;
+                      });
+                    },
+                    isMobile: isMobile,
+                    itemDisplay: (id) {
+                      final year = _years.firstWhere((y) => y.yearId == id);
+                      return '${year.yearLevel} Year';
+                      // Return the full name for display
+                    },
+                  ),
+                  const SizedBox(height: 24),
+                  LabeledSelect<String>(
+                    label: 'Modality',
+                    value: _selectedModality,
+                    items: _modality,
+                    onChanged: (value) {
+                      setState(() {
+                        _selectedModality = value;
+                      });
+                    },
+                    isMobile: isMobile,
+                    itemDisplay: (value) {
+                      return value; // Display the modality directly
+                    },
+                  ),
+                  // Add form fields for date, subject, semester, year level, and modality
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSummaryStep(bool isMobile) {
+    if (!_validateData()) {
+      return const Center(
+        child:
+            Text('Please complete all previous steps before viewing summary.'),
+      );
+    }
+
+    return StepContainer(
+      actions: [
+        SecondaryButton(
+          child: const Text('Back'),
+          onPressed: () => controller.previousStep(),
+        ),
+        PrimaryButton(
+          child: const Text('Submit'),
+          onPressed: () async {
+            final evalId = await _addEvaluation();
+            if (evalId != null) {
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => EvaluationPage(evalId: evalId),
+                ),
+              );
+            } else {
+              showToast(
+                context: context,
+                builder: (context, overlay) => buildToast(
+                    context, overlay, "Failed to submit evaluation."),
+                location: ToastLocation.bottomRight,
+              );
+            }
+          },
+        ),
+      ],
+      child: isMobile
+          ? Column(
+              children: [
+                _buildSummaryCard(
+                  'Teacher Profile',
+                  [
+                    SummaryField(
+                      isMobile: true,
+                      label: 'Teacher',
+                      value: _teachers
+                          .firstWhere((t) => t.teacherId == _selectedTeacher)
+                          .teacherName,
+                    ),
+                    const SizedBox(height: 24),
+                    SummaryField(
+                      isMobile: true,
+                      label: 'College',
+                      value: _colleges
+                          .firstWhere((c) => c.collegeId == _selectedCollege)
+                          .collegeName,
+                    ),
+                    const SizedBox(height: 24),
+                    SummaryField(
+                      isMobile: true,
+                      label: 'Department',
+                      value: _departments
+                          .firstWhere((d) => d.deptId == _selectedDepartment)
+                          .deptName,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                _buildSummaryCard(
+                  'Observation Details',
+                  [
+                    SummaryField(
+                      isMobile: true,
+                      label: 'Observer',
+                      value: widget.user.userFullName,
+                    ),
+                    const SizedBox(height: 24),
+                    SummaryField(
+                      isMobile: true,
+                      label: 'Date',
+                      value:
+                          DateFormat('MMMM d, yyyy').format(_observationDate!),
+                    ),
+                    const SizedBox(height: 24),
+                    SummaryField(
+                      isMobile: true,
+                      label: 'Subject',
+                      value: _subjectController.text,
+                    ),
+                    const SizedBox(height: 24),
+                    SummaryField(
+                      isMobile: true,
+                      label: 'Semester',
+                      value:
+                          "${_semesters.firstWhere((s) => s.semesterId == _selectedSemester).semesterName} Semester",
+                    ),
+                    const SizedBox(height: 24),
+                    SummaryField(
+                      isMobile: true,
+                      label: 'Year Level',
+                      value:
+                          "${_years.firstWhere((y) => y.yearId == _selectedYear).yearLevel} Year",
+                    ),
+                    const SizedBox(height: 24),
+                    SummaryField(
+                      isMobile: true,
+                      label: 'Modality',
+                      value: _selectedModality ?? 'Unknown Modality',
+                    ),
+                  ],
+                ),
+              ],
+            )
+          : Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: _buildSummaryCard(
+                    'Teacher Profile',
+                    [
+                      SummaryField(
+                        isMobile: false,
+                        label: 'Teacher',
+                        value: _teachers
+                            .firstWhere((t) => t.teacherId == _selectedTeacher)
+                            .teacherName,
+                      ),
+                      const SizedBox(height: 24),
+                      SummaryField(
+                        isMobile: false,
+                        label: 'College',
+                        value: _colleges
+                            .firstWhere((c) => c.collegeId == _selectedCollege)
+                            .collegeName,
+                      ),
+                      const SizedBox(height: 24),
+                      SummaryField(
+                        isMobile: false,
+                        label: 'Department',
+                        value: _departments
+                            .firstWhere((d) => d.deptId == _selectedDepartment)
+                            .deptName,
+                      ),
+                      const SizedBox(height: 24),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _buildSummaryCard(
+                    'Observation Details',
+                    [
+                      SummaryField(
+                        isMobile: false,
+                        label: 'Observer',
+                        value: widget.user.userFullName,
+                      ),
+                      const SizedBox(height: 24),
+                      SummaryField(
+                        isMobile: false,
+                        label: 'Date',
+                        value: _observationDate.toString(),
+                      ),
+                      const SizedBox(height: 24),
+                      SummaryField(
+                        isMobile: false,
+                        label: 'Subject',
+                        value: _subjectController.text,
+                      ),
+                      const SizedBox(height: 24),
+                      SummaryField(
+                        isMobile: false,
+                        label: 'Semester',
+                        value: _semesters
+                            .firstWhere(
+                                (s) => s.semesterId == _selectedSemester)
+                            .semesterName,
+                      ),
+                      const SizedBox(height: 24),
+                      SummaryField(
+                        isMobile: false,
+                        label: 'Year Level',
+                        value: _years
+                            .firstWhere((y) => y.yearId == _selectedYear)
+                            .yearLevel,
+                      ),
+                      const SizedBox(height: 24),
+                      SummaryField(
+                        isMobile: false,
+                        label: 'Modality',
+                        value: _selectedModality ?? 'Unknown Modality',
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+    );
+  }
+
+  Widget _buildSummaryCard(String title, List<Widget> fields) {
+    return Card(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title).semiBold(),
+          const SizedBox(height: 4),
+          Text("Summary of $title.").muted().small(),
+          const SizedBox(height: 24),
+          ...fields,
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    bool isMobile = MediaQuery.of(context).size.width < 1000;
+    final bool isMobile = MediaQuery.of(context).size.width < 1000;
+
+    if (_isLoading) {
+      return const Scaffold(
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (_errorMessage.isNotEmpty) {
+      return Scaffold(
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(_errorMessage),
+              PrimaryButton(
+                onPressed: _initializeData,
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       headers: [
         AppBar(
           title: const Text('Evaluation'),
           leading: [
             OutlineButton(
-              onPressed: () {
-                Navigator.pop(context);
-              },
+              onPressed: () => Navigator.pop(context),
               density: ButtonDensity.icon,
               child: const Icon(RadixIcons.arrowLeft),
             ),
@@ -222,8 +777,8 @@ class _ProfilePageState extends State<ProfilePage> {
       ],
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child: Container(
-          width: 500,
+        child: SizedBox(
+          width: isMobile ? double.infinity : 500,
           child: SingleChildScrollView(
             child: Stepper(
               controller: controller,
@@ -233,703 +788,17 @@ class _ProfilePageState extends State<ProfilePage> {
               steps: [
                 Step(
                   title: const Text('Teacher Profile'),
-                  icon: StepNumber(
-                    onPressed: () {
-                      controller.jumpToStep(1);
-                    },
-                  ),
-                  contentBuilder: (context) {
-                    return StepContainer(
-                      actions: [
-                        const SecondaryButton(
-                          child: Text('Prev'),
-                        ),
-                        PrimaryButton(
-                          child: const Text('Next'),
-                          onPressed: () {
-                            controller.nextStep();
-                          },
-                        ),
-                      ],
-                      child: Column(
-                        children: [
-                          Container(
-                            width: 700,
-                            child: Card(
-                              padding: const EdgeInsets.all(24),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text('Teacher Profile').semiBold(),
-                                  const SizedBox(height: 4),
-                                  const Text(
-                                          "Fill out the teacher's information.")
-                                      .muted()
-                                      .small(),
-                                  const SizedBox(height: 24),
-                                  LabeledSelect<int>(
-                                    label: 'Teacher',
-                                    value: _selectedTeacher,
-                                    items: _teachers
-                                        .map((teacher) => teacher.teacherId)
-                                        .toList(),
-                                    onChanged: (value) {
-                                      setState(() {
-                                        _selectedTeacher = value;
-                                      });
-                                    },
-                                    isMobile: isMobile,
-                                    itemDisplay: (id) {
-                                      final teacher = _teachers.firstWhere(
-                                          (teacher) => teacher.teacherId == id);
-                                      return teacher.teacherName;
-                                      // Return the full name for display
-                                    },
-                                  ),
-                                  const SizedBox(height: 24),
-                                  LabeledSelect<int>(
-                                    label: 'College',
-                                    value: _selectedCollege,
-                                    items: _colleges
-                                        .map((college) => college.collegeId)
-                                        .toList(),
-                                    onChanged: (value) {
-                                      setState(() {
-                                        _selectedCollege = value;
-                                      });
-                                    },
-                                    isMobile: isMobile,
-                                    itemDisplay: (id) {
-                                      final college = _colleges.firstWhere(
-                                          (college) => college.collegeId == id);
-                                      return college.collegeName;
-                                      // Return the full name for display
-                                    },
-                                  ),
-                                  const SizedBox(height: 24),
-                                  LabeledSelect<int>(
-                                    label: 'Department',
-                                    value: _selectedDepartment,
-                                    items: _departments
-                                        .map((department) => department.deptId)
-                                        .toList(),
-                                    onChanged: (value) {
-                                      setState(() {
-                                        _selectedDepartment = value;
-                                      });
-                                    },
-                                    isMobile: isMobile,
-                                    itemDisplay: (id) {
-                                      final department = _departments
-                                          .firstWhere((department) =>
-                                              department.deptId == id);
-                                      return department.deptName;
-                                      // Return the full name for display
-                                    },
-                                  ),
-                                ],
-                              ),
-                            ).intrinsic(),
-                          )
-                        ],
-                      ),
-                    );
-                  },
+                  contentBuilder: (context) =>
+                      _buildTeacherProfileStep(isMobile),
                 ),
                 Step(
                   title: const Text('Observation Details'),
-                  icon: StepNumber(
-                    onPressed: () {
-                      controller.jumpToStep(2);
-                    },
-                  ),
-                  contentBuilder: (context) {
-                    return StepContainer(
-                      actions: [
-                        SecondaryButton(
-                          child: const Text('Prev'),
-                          onPressed: () {
-                            controller.previousStep();
-                          },
-                        ),
-                        PrimaryButton(
-                            child: const Text('Next'),
-                            onPressed: () {
-                              controller.nextStep();
-                            }),
-                      ],
-                      child: Column(
-                        children: [
-                          Container(
-                            width: 700,
-                            child: Card(
-                              padding: const EdgeInsets.all(24),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text('Observation Details').semiBold(),
-                                  const SizedBox(height: 4),
-                                  const Text(
-                                          "Fill out the observation details.")
-                                      .muted()
-                                      .small(),
-                                  const SizedBox(height: 24),
-                                  isMobile
-                                      ? Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            const Text("Observer")
-                                                .semiBold()
-                                                .small(),
-                                            const SizedBox(
-                                              height: 8,
-                                            ),
-                                            TextField(
-                                              readOnly: true,
-                                              initialValue:
-                                                  widget.user.userFullName,
-                                            ),
-                                          ],
-                                        )
-                                      : Row(
-                                          children: [
-                                            Expanded(
-                                              flex: 2,
-                                              child: const Text("Observer")
-                                                  .semiBold()
-                                                  .small(),
-                                            ),
-                                            const SizedBox(
-                                              width: 16,
-                                            ),
-                                            Expanded(
-                                              flex: 3,
-                                              child: TextField(
-                                                readOnly: true,
-                                                initialValue:
-                                                    widget.user.userFullName,
-                                                // placeholder: 'Enter subject',
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                  const SizedBox(height: 24),
-                                  isMobile
-                                      ? Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            const Text("Date")
-                                                .semiBold()
-                                                .small(), // Reusable label
-                                            const SizedBox(height: 8),
-                                            DatePicker(
-                                              value: _observationDate,
-                                              mode: PromptMode.popover,
-                                              stateBuilder: (date) {
-                                                if (date
-                                                    .isAfter(DateTime.now())) {
-                                                  return DateState.disabled;
-                                                }
-                                                return DateState.enabled;
-                                              },
-                                              onChanged: (value) {
-                                                setState(() {
-                                                  _observationDate = value;
-                                                });
-                                              },
-                                            ),
-                                          ],
-                                        )
-                                      : Row(
-                                          children: [
-                                            Expanded(
-                                              flex:
-                                                  2, // You can adjust the flex for better proportions
-                                              child: const Text("Date")
-                                                  .semiBold()
-                                                  .small(),
-                                            ),
-                                            const SizedBox(width: 16),
-                                            Expanded(
-                                              flex:
-                                                  3, // You can adjust the flex for better proportions
-                                              child: DatePicker(
-                                                value: _observationDate,
-                                                mode: PromptMode.popover,
-                                                stateBuilder: (date) {
-                                                  if (date.isAfter(
-                                                      DateTime.now())) {
-                                                    return DateState.disabled;
-                                                  }
-                                                  return DateState.enabled;
-                                                },
-                                                onChanged: (value) {
-                                                  setState(() {
-                                                    _observationDate = value;
-                                                  });
-                                                },
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                  const SizedBox(height: 24),
-                                  isMobile
-                                      ? Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            const Text('Subject')
-                                                .semiBold()
-                                                .small(),
-                                            const SizedBox(height: 4),
-                                            TextField(
-                                              controller: _subjectController,
-                                              placeholder: 'Enter subject',
-                                            ),
-                                          ],
-                                        )
-                                      : Row(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.center,
-                                          children: [
-                                            Expanded(
-                                              flex: 2,
-                                              child: const Text('Subject')
-                                                  .semiBold()
-                                                  .small(),
-                                            ),
-                                            const SizedBox(width: 16),
-                                            Expanded(
-                                              flex: 3,
-                                              child: TextField(
-                                                controller: _subjectController,
-                                                placeholder: 'Enter subject',
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                  const SizedBox(height: 24),
-                                  LabeledSelect<int>(
-                                    label: 'Semester',
-                                    value: _selectedSemester,
-                                    items: _semesters
-                                        .map((semester) => semester.semesterId)
-                                        .toList(),
-                                    onChanged: (value) {
-                                      setState(() {
-                                        _selectedSemester = value;
-                                      });
-                                    },
-                                    isMobile: isMobile,
-                                    itemDisplay: (id) {
-                                      final semester = _semesters.firstWhere(
-                                          (semester) =>
-                                              semester.semesterId == id);
-                                      return '${semester.semesterName} Semester';
-                                      // Return the full name for display
-                                    },
-                                  ),
-                                  const SizedBox(height: 24),
-                                  LabeledSelect<int>(
-                                    label: 'Year Level',
-                                    value: _selectedYear,
-                                    items: _years
-                                        .map((year) => year.yearId)
-                                        .toList(),
-                                    onChanged: (value) {
-                                      setState(() {
-                                        _selectedYear = value;
-                                      });
-                                    },
-                                    isMobile: isMobile,
-                                    itemDisplay: (id) {
-                                      final year = _years.firstWhere(
-                                          (year) => year.yearId == id);
-                                      return '${year.yearLevel} Year';
-                                      // Return the full name for display
-                                    },
-                                  ),
-                                  const SizedBox(height: 24),
-                                  LabeledSelect<String>(
-                                    label: 'Modality',
-                                    value: _selectedModality,
-                                    items: _modality,
-                                    onChanged: (value) {
-                                      setState(() {
-                                        _selectedModality = value;
-                                      });
-                                    },
-                                    isMobile: isMobile,
-                                    itemDisplay: (value) {
-                                      return value; // Display the modality directly
-                                    },
-                                  ),
-                                ],
-                              ),
-                            ).intrinsic(),
-                          )
-                        ],
-                      ),
-                    );
-                  },
+                  contentBuilder: (context) =>
+                      _buildObservationDetailsStep(isMobile),
                 ),
                 Step(
-                  title: const Text('Evaluation Summary'),
-                  contentBuilder: (context) {
-                    return StepContainer(
-                      actions: [
-                        SecondaryButton(
-                          child: const Text('Prev'),
-                          onPressed: () {
-                            controller.previousStep();
-                          },
-                        ),
-                        PrimaryButton(
-                          child: const Text('Finish'),
-                          onPressed: () async {
-                            int? evalId = await addEvaluation(
-                              userId: widget.user.userId!,
-                              teacherId: _selectedTeacher!,
-                              semesterId: _selectedSemester!,
-                              subject: _subjectController.text,
-                              date: _observationDate!,
-                              modality: _selectedModality!,
-                              yearId: _selectedYear!,
-                            );
-
-                            if (evalId != null) {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => EvaluationPage(
-                                    evalId: evalId, // Pass the evalId here
-                                  ),
-                                ),
-                              );
-                            } else {
-                              // Handle the case where the evaluation was not added successfully
-                            }
-                          },
-                        )
-                      ],
-                      child: Column(
-                        children: [
-                          isMobile
-                              ? Column(
-                                  children: [
-                                    Container(
-                                      width: 500,
-                                      child: Card(
-                                        padding: const EdgeInsets.all(24),
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            const Text('Teacher Profile')
-                                                .semiBold(),
-                                            const SizedBox(height: 4),
-                                            const Text(
-                                                    "The summary of the teacher's profile.")
-                                                .muted()
-                                                .small(),
-                                            const SizedBox(height: 24),
-                                            SummaryField(
-                                              isMobile: isMobile,
-                                              label: 'Teacher',
-                                              value: _teachers
-                                                  .firstWhere(
-                                                    (teacher) =>
-                                                        teacher.teacherId ==
-                                                        _selectedTeacher,
-                                                    orElse: () => Teacher(
-                                                      teacherId: 0,
-                                                      teacherName:
-                                                          'Unknown Teacher',
-                                                    ),
-                                                  )
-                                                  .teacherName,
-                                            ),
-                                            const SizedBox(height: 24),
-                                            SummaryField(
-                                              isMobile: isMobile,
-                                              label: 'College',
-                                              value: _colleges
-                                                  .firstWhere(
-                                                    (college) =>
-                                                        college.collegeId ==
-                                                        _selectedCollege,
-                                                    orElse: () => College(
-                                                      collegeId: 0,
-                                                      collegeName:
-                                                          'Unknown College',
-                                                    ),
-                                                  )
-                                                  .collegeName,
-                                            ),
-                                            const SizedBox(height: 24),
-                                            SummaryField(
-                                              isMobile: isMobile,
-                                              label: 'Department',
-                                              value: _departments
-                                                  .firstWhere(
-                                                    (department) =>
-                                                        department.deptId ==
-                                                        _selectedDepartment,
-                                                    orElse: () => Department(
-                                                      deptId: 0,
-                                                      deptName:
-                                                          'Unknown Department',
-                                                    ),
-                                                  )
-                                                  .deptName,
-                                            ),
-                                            const SizedBox(height: 24),
-                                          ],
-                                        ),
-                                      ).intrinsic(),
-                                    ),
-                                    const SizedBox(height: 12),
-                                    Container(
-                                      width: 500,
-                                      child: Card(
-                                        padding: const EdgeInsets.all(24),
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            const Text('Observation Details')
-                                                .semiBold(),
-                                            const SizedBox(height: 4),
-                                            const Text(
-                                                    "The summary of the observation details.")
-                                                .muted()
-                                                .small(),
-                                            const SizedBox(height: 24),
-                                            SummaryField(
-                                                isMobile: isMobile,
-                                                label: 'Observer',
-                                                value:
-                                                    widget.user.userFullName),
-                                            const SizedBox(height: 24),
-                                            SummaryField(
-                                              isMobile: isMobile,
-                                              label: 'Date',
-                                              value: DateFormat('MMMM d, yyyy')
-                                                  .format(_observationDate!),
-                                            ),
-                                            const SizedBox(height: 24),
-                                            SummaryField(
-                                              isMobile: isMobile,
-                                              label: 'Subject',
-                                              value: _subjectController.text,
-                                            ),
-                                            const SizedBox(height: 24),
-                                            SummaryField(
-                                              isMobile: isMobile,
-                                              label: 'Semester',
-                                              value: "${_semesters.firstWhere(
-                                                    (semester) =>
-                                                        semester.semesterId ==
-                                                        _selectedSemester,
-                                                    orElse: () => Semester(
-                                                      semesterId: 0,
-                                                      semesterName:
-                                                          'Unknown Semester',
-                                                    ),
-                                                  ).semesterName} Semester",
-                                            ),
-                                            const SizedBox(height: 24),
-                                            SummaryField(
-                                              isMobile: isMobile,
-                                              label: 'Year Level',
-                                              value: "${_years.firstWhere(
-                                                    (year) =>
-                                                        year.yearId ==
-                                                        _selectedYear,
-                                                    orElse: () => Year(
-                                                      yearId: 0,
-                                                      yearLevel: 'Unknown Year',
-                                                    ),
-                                                  ).yearLevel} Year",
-                                            ),
-                                            const SizedBox(height: 24),
-                                            SummaryField(
-                                              isMobile: isMobile,
-                                              label: 'Modality',
-                                              value: _selectedModality ??
-                                                  'Unknown Modality',
-                                            ),
-                                            const SizedBox(height: 24),
-                                          ],
-                                        ),
-                                      ).intrinsic(),
-                                    ),
-                                  ],
-                                )
-                              : Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Expanded(
-                                      flex: 1,
-                                      child: Container(
-                                        child: Card(
-                                          padding: const EdgeInsets.all(24),
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              const Text('Teacher Profile')
-                                                  .semiBold(),
-                                              const SizedBox(height: 4),
-                                              const Text(
-                                                      "The summary of the teacher's profile.")
-                                                  .muted()
-                                                  .small(),
-                                              const SizedBox(height: 24),
-                                              SummaryField(
-                                                isMobile: isMobile,
-                                                label: 'Teacher',
-                                                value: _teachers
-                                                    .firstWhere(
-                                                      (teacher) =>
-                                                          teacher.teacherId ==
-                                                          _selectedTeacher,
-                                                      orElse: () => Teacher(
-                                                        teacherId: 0,
-                                                        teacherName:
-                                                            'Unknown Teacher',
-                                                      ),
-                                                    )
-                                                    .teacherName,
-                                              ),
-                                              const SizedBox(height: 24),
-                                              SummaryField(
-                                                isMobile: isMobile,
-                                                label: 'College',
-                                                value: _colleges
-                                                    .firstWhere(
-                                                      (college) =>
-                                                          college.collegeId ==
-                                                          _selectedCollege,
-                                                      orElse: () => College(
-                                                        collegeId: 0,
-                                                        collegeName:
-                                                            'Unknown College',
-                                                      ),
-                                                    )
-                                                    .collegeName,
-                                              ),
-                                              const SizedBox(height: 24),
-                                              SummaryField(
-                                                isMobile: isMobile,
-                                                label: 'Department',
-                                                value: _departments
-                                                    .firstWhere(
-                                                      (department) =>
-                                                          department.deptId ==
-                                                          _selectedDepartment,
-                                                      orElse: () => Department(
-                                                        deptId: 0,
-                                                        deptName:
-                                                            'Unknown Department',
-                                                      ),
-                                                    )
-                                                    .deptName,
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      flex: 1,
-                                      child: Container(
-                                        child: Card(
-                                          padding: const EdgeInsets.all(24),
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              const Text('Observation Details')
-                                                  .semiBold(),
-                                              const SizedBox(height: 4),
-                                              const Text(
-                                                      "The summary of the observation details.")
-                                                  .muted()
-                                                  .small(),
-                                              const SizedBox(height: 24),
-                                              SummaryField(
-                                                  isMobile: isMobile,
-                                                  label: 'Observer',
-                                                  value:
-                                                      widget.user.userFullName),
-                                              const SizedBox(height: 24),
-                                              SummaryField(
-                                                isMobile: isMobile,
-                                                label: 'Date',
-                                                value:
-                                                    _observationDate.toString(),
-                                              ),
-                                              const SizedBox(height: 24),
-                                              SummaryField(
-                                                isMobile: isMobile,
-                                                label: 'Subject',
-                                                value: _subjectController.text,
-                                              ),
-                                              const SizedBox(height: 24),
-                                              SummaryField(
-                                                isMobile: isMobile,
-                                                label: 'Semester',
-                                                value: "${_semesters.firstWhere(
-                                                      (semester) =>
-                                                          semester.semesterId ==
-                                                          _selectedSemester,
-                                                      orElse: () => Semester(
-                                                        semesterId: 0,
-                                                        semesterName:
-                                                            'Unknown Semester',
-                                                      ),
-                                                    ).semesterName} Semester",
-                                              ),
-                                              const SizedBox(height: 24),
-                                              SummaryField(
-                                                isMobile: isMobile,
-                                                label: 'Year Level',
-                                                value: "${_years.firstWhere(
-                                                      (year) =>
-                                                          year.yearId ==
-                                                          _selectedYear,
-                                                      orElse: () => Year(
-                                                        yearId: 0,
-                                                        yearLevel:
-                                                            'Unknown Year',
-                                                      ),
-                                                    ).yearLevel} Year",
-                                              ),
-                                              const SizedBox(height: 24),
-                                              SummaryField(
-                                                isMobile: isMobile,
-                                                label: 'Modality',
-                                                value: _selectedModality ??
-                                                    'Unknown Modality',
-                                              ),
-                                              const SizedBox(height: 24)
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                )
-                        ],
-                      ),
-                    );
-                  },
+                  title: const Text('Summary'),
+                  contentBuilder: (context) => _buildSummaryStep(isMobile),
                 ),
               ],
             ),

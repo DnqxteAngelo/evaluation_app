@@ -28,31 +28,34 @@ class LabeledSelect<T> extends StatelessWidget {
             children: [
               Text(label).semiBold().small(), // Reusable label
               const SizedBox(height: 8),
-              Select<T>(
-                itemBuilder: (context, item) {
-                  return Text(itemDisplay(item)); // Display the item name
-                },
-                searchFilter: (item, query) {
-                  return itemDisplay(item)
-                          .toLowerCase()
-                          .contains(query.toLowerCase())
-                      ? 1
-                      : 0;
-                },
-                autoClosePopover: true,
-                popupConstraints: popupConstraints,
-                onChanged: onChanged,
-                value: value,
-                placeholder: Align(
-                  alignment: Alignment.centerLeft, // Align to the start
-                  child: Text('Select $label', selectionColor: Colors.gray),
+              Container(
+                width: double.infinity,
+                child: Select<T>(
+                  itemBuilder: (context, item) {
+                    return Text(itemDisplay(item)); // Display the item name
+                  },
+                  searchFilter: (item, query) {
+                    return itemDisplay(item)
+                            .toLowerCase()
+                            .contains(query.toLowerCase())
+                        ? 1
+                        : 0;
+                  },
+                  autoClosePopover: true,
+                  popupConstraints: popupConstraints,
+                  onChanged: onChanged,
+                  value: value,
+                  placeholder: Align(
+                    alignment: Alignment.centerLeft, // Align to the start
+                    child: Text('Select $label', selectionColor: Colors.gray),
+                  ),
+                  children: items
+                      .map((item) => SelectItemButton(
+                            value: item,
+                            child: Text(itemDisplay(item)),
+                          ))
+                      .toList(),
                 ),
-                children: items
-                    .map((item) => SelectItemButton(
-                          value: item,
-                          child: Text(itemDisplay(item)),
-                        ))
-                    .toList(),
               ),
             ],
           )
