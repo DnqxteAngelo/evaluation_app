@@ -1,7 +1,8 @@
 // ignore_for_file: library_private_types_in_public_api, prefer_const_constructors, use_super_parameters, use_build_context_synchronously, avoid_print
 
 import 'package:evaluation_app/components/toast.dart';
-import 'package:evaluation_app/pages/evaluation_page.dart';
+import 'package:evaluation_app/models/models.dart';
+import 'package:evaluation_app/pages/dashboard_page.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -75,10 +76,13 @@ class _MyHomePagetate extends State<MyHomePage> {
       if (response.statusCode == 200) {
         var userData = jsonDecode(response.body);
         if (userData.isNotEmpty) {
+          User user = User.fromJson(userData[0]);
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => EvaluationPage(),
+              builder: (context) => DashboardPage(
+                user: user,
+              ),
             ),
           );
           showToast(
@@ -87,6 +91,9 @@ class _MyHomePagetate extends State<MyHomePage> {
                 buildToast(context, overlay, "Successfully logged in."),
             location: ToastLocation.bottomRight,
           );
+
+          _usernameController.clear();
+          _passwordController.clear();
         } else {
           // Show toast when credentials are invalid
           showToast(

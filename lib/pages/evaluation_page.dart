@@ -1,12 +1,17 @@
-// ignore_for_file: use_super_parameters, library_private_types_in_public_api, prefer_const_constructors
+// ignore_for_file: use_super_parameters, library_private_types_in_public_api, prefer_const_constructors, avoid_print
 
 import 'dart:async';
 import 'dart:convert';
+import 'package:evaluation_app/components/toast.dart';
 import 'package:http/http.dart' as http;
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 
 class EvaluationPage extends StatefulWidget {
-  const EvaluationPage({Key? key}) : super(key: key);
+  final int evalId;
+
+  EvaluationPage({
+    required this.evalId,
+  });
 
   @override
   _EvaluationPageState createState() => _EvaluationPageState();
@@ -14,9 +19,11 @@ class EvaluationPage extends StatefulWidget {
 
 class _EvaluationPageState extends State<EvaluationPage> {
   late Future<Map<String, List<Map<String, String>>>> _activitiesFuture;
-
+  Map<String, int> _activityTallies = {};
   List<CheckboxState> _studentChecked = [];
   List<CheckboxState> _teacherChecked = [];
+  List<Map<String, String>> studentActivities = [];
+  List<Map<String, String>> teacherActivities = [];
 
   Timer? _timer;
   DateTime? _currentTime;
@@ -37,6 +44,37 @@ class _EvaluationPageState extends State<EvaluationPage> {
         fetchActivities(); // Fetch activities when the widget initializes
     _startTime = getPhilippineTime();
     _fetchTimeRanges();
+  }
+
+  Future<void> fetchActivityTallies() async {
+    try {
+      final response = await http.post(
+        Uri.parse('http://localhost/evaluation_app_api/transaction.php'),
+        body: {
+          'operation': 'countActivityTally',
+          'json': json.encode({'trans_evalId': widget.evalId.toString()}),
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> tallies = json.decode(response.body);
+        setState(() {
+          // Reset tallies
+          _activityTallies.clear();
+
+          // Process each tally
+          for (var tally in tallies) {
+            String actId = tally['trans_actId'].toString();
+            int count = int.parse(tally['tally'].toString());
+            _activityTallies[actId] = count;
+          }
+        });
+      } else {
+        print('Failed to load tallies');
+      }
+    } catch (e) {
+      print('Error fetching tallies: $e');
+    }
   }
 
   Future<void> _fetchTimeRanges() async {
@@ -82,10 +120,15 @@ class _EvaluationPageState extends State<EvaluationPage> {
   }
 
   void _startRange() {
-    _range = Timer.periodic(const Duration(minutes: 2), (timer) {
+    _range = Timer.periodic(const Duration(minutes: 2), (timer) async {
+      // Add transactions for current time range if any activities are checked
+      await _addTransactions();
+
       setState(() {
         _currentRangeIndex = (_currentRangeIndex + 1) % _timeRanges.length;
       });
+
+      _resetCheckboxes();
 
       // Stop the timer after 90 minutes
       if (_hasExceededTimeLimit()) {
@@ -123,6 +166,15 @@ class _EvaluationPageState extends State<EvaluationPage> {
     });
   }
 
+  void _resetCheckboxes() {
+    setState(() {
+      _studentChecked =
+          List.filled(_studentChecked.length, CheckboxState.unchecked);
+      _teacherChecked =
+          List.filled(_teacherChecked.length, CheckboxState.unchecked);
+    });
+  }
+
   String _formatCurrentTime() {
     if (_currentTime == null) return "00:00:00"; // Set the initial time
     final hours = _currentTime!.hour.toString().padLeft(2, '0');
@@ -145,21 +197,115 @@ class _EvaluationPageState extends State<EvaluationPage> {
     super.dispose();
   }
 
+  bool _hasCheckedActivities() {
+    return _studentChecked.contains(CheckboxState.checked) ||
+        _teacherChecked.contains(CheckboxState.checked);
+  }
+
+  Future<void> _addTransactions() async {
+    if (!_hasCheckedActivities()) return; // Exit if no activities are checked
+
+    final url =
+        Uri.parse('http://localhost/evaluation_app_api/transaction.php');
+
+    List<Map<String, String>> allTransactions = []; // Store as Strings
+
+    // Add student activities
+    for (int i = 0; i < _studentChecked.length; i++) {
+      if (_studentChecked[i] == CheckboxState.checked) {
+        final timeId =
+            _timeRanges.isNotEmpty && _currentRangeIndex < _timeRanges.length
+                ? _timeRanges[_currentRangeIndex]['time_id']
+                : null;
+        final actId =
+            studentActivities.isNotEmpty && i < studentActivities.length
+                ? studentActivities[i]['act_id']
+                : null;
+
+        if (timeId != null && actId != null) {
+          allTransactions.add({
+            'trans_evalId': widget.evalId.toString(),
+            'trans_timeId': timeId.toString(),
+            'trans_actId': actId.toString(),
+          });
+        } else {
+          print(
+              'Error: timeId or actId is null at student index $i'); // Debugging output
+        }
+      }
+    }
+
+    // Add teacher activities (similar checks)
+    for (int i = 0; i < _teacherChecked.length; i++) {
+      if (_teacherChecked[i] == CheckboxState.checked) {
+        final timeId =
+            _timeRanges.isNotEmpty && _currentRangeIndex < _timeRanges.length
+                ? _timeRanges[_currentRangeIndex]['time_id']
+                : null;
+        final actId =
+            teacherActivities.isNotEmpty && i < teacherActivities.length
+                ? teacherActivities[i]['act_id']
+                : null;
+
+        if (timeId != null && actId != null) {
+          allTransactions.add({
+            'trans_evalId': widget.evalId.toString(),
+            'trans_timeId': timeId.toString(),
+            'trans_actId': actId.toString(),
+          });
+        } else {
+          print(
+              'Error: timeId or actId is null at teacher index $i'); // Debugging output
+        }
+      }
+    }
+
+    // Send transactions to server
+    for (var transaction in allTransactions) {
+      try {
+        final response = await http.post(
+          url,
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: {
+            'operation': 'addTransaction',
+            'json': jsonEncode(transaction),
+          },
+        );
+
+        if (response.statusCode != 200) {
+          print('Failed to add transaction: ${response.body}');
+        } else {
+          showToast(
+            context: context,
+            builder: (context, overlay) =>
+                buildToast(context, overlay, "Response Saved."),
+            location: ToastLocation.bottomRight,
+          );
+          await fetchActivityTallies();
+        }
+      } catch (e) {
+        print('Error adding transaction: $e');
+      }
+    }
+  }
+
   Future<Map<String, List<Map<String, String>>>> fetchActivities() async {
     final url = Uri.parse(
         'http://localhost/evaluation_app_api/transaction.php'); // Replace with your actual API endpoint
     final response = await http.post(url, body: {
       'operation': 'getActivities',
     });
+    print(response.body);
 
     if (response.statusCode == 200) {
       List<dynamic> data = json.decode(response.body);
-      List<Map<String, String>> studentActivities = [];
-      List<Map<String, String>> teacherActivities = [];
 
       // Separate activities based on act_person and include act_code and act_name
       for (var activity in data) {
         Map<String, String> activityInfo = {
+          'act_id': activity['act_id'].toString(),
           'act_code': activity['act_code'] as String,
           'act_name': activity['act_name'] as String,
         };
@@ -283,7 +429,7 @@ class _EvaluationPageState extends State<EvaluationPage> {
             ],
           ),
           actions: [
-            PrimaryButton(
+            OutlineButton(
               child: const Text('Comment'),
               onPressed: () {
                 setState(() {
@@ -464,14 +610,17 @@ class _EvaluationPageState extends State<EvaluationPage> {
                                         ),
                                       ),
                                       Container(
-                                        width: screenSize
-                                            ? 70
-                                            : 90, // Adjust width based on screen size
+                                        width: screenSize ? 70 : 90,
                                         child: Padding(
                                           padding: EdgeInsets.all(
                                               screenSize ? 4 : 6),
                                           child: Center(
-                                              child: Text("69").xSmall()),
+                                            child: Text(_activityTallies[
+                                                            activity['act_id']]
+                                                        ?.toString() ??
+                                                    '0')
+                                                .xSmall(),
+                                          ),
                                         ),
                                       ),
                                       Container(
@@ -599,14 +748,17 @@ class _EvaluationPageState extends State<EvaluationPage> {
                                         ),
                                       ),
                                       Container(
-                                        width: screenSize
-                                            ? 70
-                                            : 90, // Adjust width based on screen size
+                                        width: screenSize ? 70 : 90,
                                         child: Padding(
                                           padding: EdgeInsets.all(
                                               screenSize ? 4 : 6),
                                           child: Center(
-                                              child: Text("69").xSmall()),
+                                            child: Text(_activityTallies[
+                                                            activity['act_id']]
+                                                        ?.toString() ??
+                                                    '0')
+                                                .xSmall(),
+                                          ),
                                         ),
                                       ),
                                       Container(
@@ -735,14 +887,17 @@ class _EvaluationPageState extends State<EvaluationPage> {
                                       ),
                                     ),
                                     Container(
-                                      width: screenSize
-                                          ? 100
-                                          : 80, // Adjust width based on screen size
+                                      width: screenSize ? 70 : 90,
                                       child: Padding(
                                         padding:
-                                            EdgeInsets.all(screenSize ? 8 : 6),
-                                        child:
-                                            Center(child: Text("69").xSmall()),
+                                            EdgeInsets.all(screenSize ? 4 : 6),
+                                        child: Center(
+                                          child: Text(_activityTallies[
+                                                          activity['act_id']]
+                                                      ?.toString() ??
+                                                  '0')
+                                              .xSmall(),
+                                        ),
                                       ),
                                     ),
                                     Container(
@@ -753,7 +908,7 @@ class _EvaluationPageState extends State<EvaluationPage> {
                                         padding:
                                             EdgeInsets.all(screenSize ? 4 : 6),
                                         child: Center(
-                                          child: PrimaryButton(
+                                          child: OutlineButton(
                                             size: ButtonSize.small,
                                             density: ButtonDensity.dense,
                                             onPressed: () {
@@ -863,14 +1018,17 @@ class _EvaluationPageState extends State<EvaluationPage> {
                                       ),
                                     ),
                                     Container(
-                                      width: screenSize
-                                          ? 100
-                                          : 80, // Adjust width based on screen size
+                                      width: screenSize ? 70 : 90,
                                       child: Padding(
                                         padding:
-                                            EdgeInsets.all(screenSize ? 8 : 6),
-                                        child:
-                                            Center(child: Text("69").xSmall()),
+                                            EdgeInsets.all(screenSize ? 4 : 6),
+                                        child: Center(
+                                          child: Text(_activityTallies[
+                                                          activity['act_id']]
+                                                      ?.toString() ??
+                                                  '0')
+                                              .xSmall(),
+                                        ),
                                       ),
                                     ),
                                     Container(
