@@ -1,4 +1,5 @@
 import 'package:evaluation_app/models/models.dart';
+import 'package:evaluation_app/pages/masterlist_page.dart';
 import 'package:evaluation_app/pages/profile_page.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 
@@ -126,7 +127,16 @@ class _DashboardPageState extends State<DashboardPage> {
               width: 400,
               child: PrimaryButton(
                 alignment: Alignment.center,
-                onPressed: () {},
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => MasterlistPage(
+                        user: widget.user,
+                      ),
+                    ),
+                  );
+                },
                 size: isMobile ? ButtonSize.large : ButtonSize.xLarge,
                 leading: const Icon(BootstrapIcons.database),
                 child: const Text('Master List'),

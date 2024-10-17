@@ -49,16 +49,19 @@ class Year {
 
 class User {
   final int? userId;
+  final int userDeptId;
   final String userFullName;
 
   User({
     required this.userId,
     required this.userFullName,
+    required this.userDeptId,
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
     return User(
       userId: json['user_id'] ?? '',
+      userDeptId: json['user_deptId'] ?? '',
       userFullName: json['user_fullname'] ?? '',
     );
   }
@@ -104,6 +107,39 @@ class Activity {
       activityCode: json['act_code'] as String,
       activityPerson: json['act_person'] as String,
       tally: json['tally'] as int,
+    );
+  }
+}
+
+class CollegeTable {
+  final String collegeName;
+  final String departmentName;
+
+  CollegeTable({required this.collegeName, required this.departmentName});
+
+  factory CollegeTable.fromJson(Map<String, dynamic> json) {
+    return CollegeTable(
+      collegeName: json['college_name'],
+      departmentName: json['dept_name'],
+    );
+  }
+}
+
+class TeacherTable {
+  final String fullname;
+  final String collegeName;
+  final String empStatus;
+
+  TeacherTable(
+      {required this.fullname,
+      required this.collegeName,
+      required this.empStatus});
+
+  factory TeacherTable.fromJson(Map<String, dynamic> json) {
+    return TeacherTable(
+      fullname: json['teacher_fullname'],
+      collegeName: json['college_name'],
+      empStatus: json['teacher_empStatus'],
     );
   }
 }
