@@ -1,4 +1,4 @@
-// ignore_for_file: avoid_print, use_build_context_synchronously
+// ignore_for_file: avoid_print, use_build_context_synchronously, unnecessary_null_comparison, use_super_parameters, library_private_types_in_public_api
 
 import 'dart:convert';
 
@@ -32,15 +32,20 @@ class _ProfilePageState extends State<ProfilePage> {
   int? _selectedCollege;
   int? _selectedDepartment;
   int? _selectedSemester;
+  int? _selectedPeriod;
+  int? _selectedSchoolYear;
   int? _selectedYear;
   String? _selectedModality;
-  DateTime? _observationDate;
+  DateTime _observationDate = DateTime.now();
+  String formattedDate = "";
 
   // Data lists
   List<Teacher> _teachers = [];
   List<College> _colleges = [];
   List<Department> _departments = [];
   List<Semester> _semesters = [];
+  List<SchoolYear> _schoolyear = [];
+  List<Period> _period = [];
   List<Year> _years = [];
   final List<String> _modality = ["FLEX", "RAD"];
 
@@ -60,6 +65,8 @@ class _ProfilePageState extends State<ProfilePage> {
         _fetchTeachers(),
         _fetchColleges(),
         _fetchDepartments(),
+        _fetchSchoolYears(),
+        _fetchPeriods(),
         _fetchSemesters(),
         _fetchYears(),
       ]);
@@ -141,6 +148,30 @@ class _ProfilePageState extends State<ProfilePage> {
     setState(() => _semesters = semesters);
   }
 
+  Future<void> _fetchSchoolYears() async {
+    final schoolyears = await _fetchSelect<SchoolYear>(
+      url: 'http://localhost/evaluation_app_api/evaluation.php',
+      body: {'operation': 'getSchoolYear'},
+      fromJson: (json) => SchoolYear(
+        syId: json['sy_id'],
+        syName: json['sy_name'],
+      ),
+    );
+    setState(() => _schoolyear = schoolyears);
+  }
+
+  Future<void> _fetchPeriods() async {
+    final periods = await _fetchSelect<Period>(
+      url: 'http://localhost/evaluation_app_api/evaluation.php',
+      body: {'operation': 'getPeriod'},
+      fromJson: (json) => Period(
+        periodId: json['period_id'],
+        periodName: json['period_name'],
+      ),
+    );
+    setState(() => _period = periods);
+  }
+
   Future<void> _fetchYears() async {
     final years = await _fetchSelect<Year>(
       url: 'http://localhost/evaluation_app_api/evaluation.php',
@@ -157,12 +188,14 @@ class _ProfilePageState extends State<ProfilePage> {
     if (!_validateData()) return null;
 
     final url = Uri.parse('http://localhost/evaluation_app_api/evaluation.php');
-    final formattedDate = DateFormat('yyyy-MM-dd').format(_observationDate!);
+    final formattedDate = DateFormat('yyyy-MM-dd').format(_observationDate);
 
     final Map<String, dynamic> jsonData = {
       'eval_userId': widget.user.userId,
       'eval_teacherId': _selectedTeacher,
       'eval_semesterId': _selectedSemester,
+      'eval_schoolyearId': _selectedSchoolYear,
+      'eval_periodId': _selectedPeriod,
       'eval_subject': _subjectController.text,
       'eval_date': formattedDate,
       'eval_modality': _selectedModality,
@@ -198,6 +231,8 @@ class _ProfilePageState extends State<ProfilePage> {
 
   bool _validateObservationDetails() {
     return _selectedSemester != null &&
+        _selectedSchoolYear != null &&
+        _selectedPeriod != null &&
         _selectedYear != null &&
         _selectedModality != null &&
         _observationDate != null &&
@@ -209,6 +244,8 @@ class _ProfilePageState extends State<ProfilePage> {
         _selectedCollege != null &&
         _selectedDepartment != null &&
         _selectedSemester != null &&
+        _selectedSchoolYear != null &&
+        _selectedPeriod != null &&
         _selectedYear != null &&
         _selectedModality != null &&
         _observationDate != null &&
@@ -382,6 +419,7 @@ class _ProfilePageState extends State<ProfilePage> {
                             Container(
                               width: double.infinity,
                               child: DatePicker(
+                                initialView: CalendarView.now(),
                                 value: _observationDate,
                                 mode: PromptMode.popover,
                                 stateBuilder: (date) {
@@ -392,7 +430,9 @@ class _ProfilePageState extends State<ProfilePage> {
                                 },
                                 onChanged: (value) {
                                   setState(() {
-                                    _observationDate = value;
+                                    _observationDate = value!;
+                                    formattedDate = DateFormat('MMMM d, y')
+                                        .format(_observationDate);
                                   });
                                 },
                               ),
@@ -411,6 +451,7 @@ class _ProfilePageState extends State<ProfilePage> {
                               flex:
                                   3, // You can adjust the flex for better proportions
                               child: DatePicker(
+                                initialView: CalendarView.now(),
                                 value: _observationDate,
                                 mode: PromptMode.popover,
                                 stateBuilder: (date) {
@@ -421,7 +462,9 @@ class _ProfilePageState extends State<ProfilePage> {
                                 },
                                 onChanged: (value) {
                                   setState(() {
-                                    _observationDate = value;
+                                    _observationDate = value!;
+                                    formattedDate = DateFormat('MMMM d, y')
+                                        .format(_observationDate);
                                   });
                                 },
                               ),
@@ -460,6 +503,24 @@ class _ProfilePageState extends State<ProfilePage> {
                         ),
                   const SizedBox(height: 24),
                   LabeledSelect<int>(
+                    label: 'Period',
+                    value: _selectedPeriod,
+                    items: _period.map((p) => p.periodId).toList(),
+                    onChanged: (value) {
+                      setState(() {
+                        _selectedPeriod = value;
+                      });
+                    },
+                    isMobile: isMobile,
+                    itemDisplay: (id) {
+                      final period =
+                          _period.firstWhere((p) => p.periodId == id);
+                      return '${period.periodName} Period';
+                      // Return the full name for display
+                    },
+                  ),
+                  const SizedBox(height: 24),
+                  LabeledSelect<int>(
                     label: 'Semester',
                     value: _selectedSemester,
                     items: _semesters.map((s) => s.semesterId).toList(),
@@ -473,6 +534,24 @@ class _ProfilePageState extends State<ProfilePage> {
                       final semester =
                           _semesters.firstWhere((s) => s.semesterId == id);
                       return '${semester.semesterName} Semester';
+                      // Return the full name for display
+                    },
+                  ),
+                  const SizedBox(height: 24),
+                  LabeledSelect<int>(
+                    label: 'School Year',
+                    value: _selectedSchoolYear,
+                    items: _schoolyear.map((sy) => sy.syId).toList(),
+                    onChanged: (value) {
+                      setState(() {
+                        _selectedSchoolYear = value;
+                      });
+                    },
+                    isMobile: isMobile,
+                    itemDisplay: (id) {
+                      final schoolyear =
+                          _schoolyear.firstWhere((sy) => sy.syId == id);
+                      return schoolyear.syName;
                       // Return the full name for display
                     },
                   ),
@@ -598,8 +677,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     SummaryField(
                       isMobile: true,
                       label: 'Date',
-                      value:
-                          DateFormat('MMMM d, yyyy').format(_observationDate!),
+                      value: formattedDate,
                     ),
                     const SizedBox(height: 24),
                     SummaryField(
@@ -610,9 +688,24 @@ class _ProfilePageState extends State<ProfilePage> {
                     const SizedBox(height: 24),
                     SummaryField(
                       isMobile: true,
+                      label: 'Period',
+                      value:
+                          "${_period.firstWhere((p) => p.periodId == _selectedPeriod).periodName} Period",
+                    ),
+                    const SizedBox(height: 24),
+                    SummaryField(
+                      isMobile: true,
                       label: 'Semester',
                       value:
                           "${_semesters.firstWhere((s) => s.semesterId == _selectedSemester).semesterName} Semester",
+                    ),
+                    const SizedBox(height: 24),
+                    SummaryField(
+                      isMobile: true,
+                      label: 'School Year',
+                      value: _schoolyear
+                          .firstWhere((sy) => sy.syId == _selectedSchoolYear)
+                          .syName,
                     ),
                     const SizedBox(height: 24),
                     SummaryField(
@@ -679,7 +772,7 @@ class _ProfilePageState extends State<ProfilePage> {
                       SummaryField(
                         isMobile: false,
                         label: 'Date',
-                        value: _observationDate.toString(),
+                        value: formattedDate,
                       ),
                       const SizedBox(height: 24),
                       SummaryField(
@@ -690,11 +783,24 @@ class _ProfilePageState extends State<ProfilePage> {
                       const SizedBox(height: 24),
                       SummaryField(
                         isMobile: false,
+                        label: 'Period',
+                        value:
+                            "${_period.firstWhere((p) => p.periodId == _selectedPeriod).periodName} Period",
+                      ),
+                      const SizedBox(height: 24),
+                      SummaryField(
+                        isMobile: false,
                         label: 'Semester',
-                        value: _semesters
-                            .firstWhere(
-                                (s) => s.semesterId == _selectedSemester)
-                            .semesterName,
+                        value:
+                            "${_semesters.firstWhere((s) => s.semesterId == _selectedSemester).semesterName} Semester",
+                      ),
+                      const SizedBox(height: 24),
+                      SummaryField(
+                        isMobile: false,
+                        label: 'School Year',
+                        value: _schoolyear
+                            .firstWhere((sy) => sy.syId == _selectedSchoolYear)
+                            .syName,
                       ),
                       const SizedBox(height: 24),
                       SummaryField(

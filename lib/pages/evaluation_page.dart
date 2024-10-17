@@ -1,8 +1,10 @@
-// ignore_for_file: use_super_parameters, library_private_types_in_public_api, prefer_const_constructors, avoid_print
+// ignore_for_file: use_super_parameters, library_private_types_in_public_api, prefer_const_constructors, avoid_print, unnecessary_null_comparison, use_build_context_synchronously, use_key_in_widget_constructors, prefer_const_constructors_in_immutables
 
 import 'dart:async';
 import 'dart:convert';
 import 'package:evaluation_app/components/toast.dart';
+import 'package:evaluation_app/models/models.dart';
+import 'package:evaluation_app/pages/result_page.dart';
 import 'package:http/http.dart' as http;
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 
@@ -19,11 +21,13 @@ class EvaluationPage extends StatefulWidget {
 
 class _EvaluationPageState extends State<EvaluationPage> {
   late Future<Map<String, List<Map<String, String>>>> _activitiesFuture;
-  Map<String, int> _activityTallies = {};
+  final Map<Activity, int> activityTallies = {};
   List<CheckboxState> _studentChecked = [];
   List<CheckboxState> _teacherChecked = [];
   List<Map<String, String>> studentActivities = [];
   List<Map<String, String>> teacherActivities = [];
+
+  final TextEditingController _commentController = TextEditingController();
 
   Timer? _timer;
   DateTime? _currentTime;
@@ -33,9 +37,6 @@ class _EvaluationPageState extends State<EvaluationPage> {
   Timer? _range;
 
   DateTime? _startTime;
-
-  Map<String, String> comments = {};
-  TextEditingController _commentController = TextEditingController();
 
   @override
   void initState() {
@@ -60,17 +61,38 @@ class _EvaluationPageState extends State<EvaluationPage> {
         final List<dynamic> tallies = json.decode(response.body);
         setState(() {
           // Reset tallies
-          _activityTallies.clear();
+          activityTallies.clear();
 
           // Process each tally
           for (var tally in tallies) {
             String actId = tally['trans_actId'].toString();
-            int count = int.parse(tally['tally'].toString());
-            _activityTallies[actId] = count;
+            String actName = tally['act_name'] ?? 'Unknown'; // Default if null
+            String actCode = tally['act_code'] ?? 'N/A'; // Default if null
+            String actPerson =
+                tally['act_person'] ?? 'Unknown'; // Default if null
+            int count = int.tryParse(tally['tally'].toString()) ??
+                0; // Default to 0 if null
+
+            // Create a new Activity object (if necessary)
+            Activity activity = Activity(
+              activityId: int.parse(actId),
+              activityName: actName,
+              activityCode: actCode,
+              activityPerson: actPerson,
+              tally: count,
+            );
+
+            activityTallies[activity] =
+                count; // Store the tally with the activity as key
           }
+
+          print('Activity Tallies:');
+          activityTallies.forEach((activity, tally) {
+            print('${activity.activityName}: $tally');
+          });
         });
       } else {
-        print('Failed to load tallies');
+        print('Failed to load tallies: ${response.statusCode}');
       }
     } catch (e) {
       print('Error fetching tallies: $e');
@@ -120,13 +142,18 @@ class _EvaluationPageState extends State<EvaluationPage> {
   }
 
   void _startRange() {
-    _range = Timer.periodic(const Duration(minutes: 2), (timer) async {
+    _range = Timer.periodic(const Duration(seconds: 5), (timer) async {
       // Add transactions for current time range if any activities are checked
       await _addTransactions();
 
       setState(() {
         _currentRangeIndex = (_currentRangeIndex + 1) % _timeRanges.length;
       });
+
+      if (_commentController.text.isNotEmpty) {
+        await _submitComment(_commentController.text);
+        _commentController.clear(); // Clear the input after submission
+      }
 
       _resetCheckboxes();
 
@@ -261,6 +288,7 @@ class _EvaluationPageState extends State<EvaluationPage> {
     }
 
     // Send transactions to server
+    bool transactionSuccess = false;
     for (var transaction in allTransactions) {
       try {
         final response = await http.post(
@@ -277,17 +305,20 @@ class _EvaluationPageState extends State<EvaluationPage> {
         if (response.statusCode != 200) {
           print('Failed to add transaction: ${response.body}');
         } else {
-          showToast(
-            context: context,
-            builder: (context, overlay) =>
-                buildToast(context, overlay, "Response Saved."),
-            location: ToastLocation.bottomRight,
-          );
+          transactionSuccess = true;
           await fetchActivityTallies();
         }
       } catch (e) {
         print('Error adding transaction: $e');
       }
+    }
+    if (transactionSuccess) {
+      showToast(
+        context: context,
+        builder: (context, overlay) =>
+            buildToast(context, overlay, "Response Saved."),
+        location: ToastLocation.bottomRight,
+      );
     }
   }
 
@@ -297,7 +328,6 @@ class _EvaluationPageState extends State<EvaluationPage> {
     final response = await http.post(url, body: {
       'operation': 'getActivities',
     });
-    print(response.body);
 
     if (response.statusCode == 200) {
       List<dynamic> data = json.decode(response.body);
@@ -367,13 +397,13 @@ class _EvaluationPageState extends State<EvaluationPage> {
                         return AlertDialog(
                           title: const Text(
                               'Are you sure you want to stop evaluating?'),
-                          content: const Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text("This will restart your progress.")
-                            ],
-                          ),
+                          // content: const Column(
+                          //   mainAxisSize: MainAxisSize.min,
+                          //   crossAxisAlignment: CrossAxisAlignment.start,
+                          //   children: [
+                          //     Text("This will restart your progress.")
+                          //   ],
+                          // ),
                           actions: [
                             DestructiveButton(
                               child: const Text('Cancel'),
@@ -410,32 +440,29 @@ class _EvaluationPageState extends State<EvaluationPage> {
     );
   }
 
-  void commentDialog(String activity) {
-    _commentController.text = comments[activity] ?? '';
+  void commentDialog() {
     showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: Text('Add Comment for $activity'),
+          title: const Text('Comment'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              const Text('Comment about how/what the class is doing.'),
+              const Gap(16),
               TextArea(
+                controller: _commentController,
                 expandableWidth: true,
                 initialWidth: 500,
-                controller: _commentController,
-              )
+              ).withPadding(vertical: 16),
             ],
           ),
           actions: [
-            OutlineButton(
+            PrimaryButton(
               child: const Text('Comment'),
               onPressed: () {
-                setState(() {
-                  comments[activity] =
-                      _commentController.text; // Save the comment
-                });
                 Navigator.pop(context);
               },
             ),
@@ -445,12 +472,41 @@ class _EvaluationPageState extends State<EvaluationPage> {
     );
   }
 
-  String getTruncatedComment(String activity) {
-    String comment = comments[activity] ?? '';
-    if (comment.isEmpty) {
-      return 'Comment'; // Default button text
-    } else {
-      return comment.length > 10 ? '${comment.substring(0, 10)}...' : comment;
+  Future<void> _submitComment(String commentText) async {
+    final timeId =
+        _timeRanges.isNotEmpty && _currentRangeIndex < _timeRanges.length
+            ? _timeRanges[_currentRangeIndex]['time_id']
+            : null;
+    final commentData = {
+      'comment_evalId': widget.evalId.toString(), // Replace with actual eval ID
+      'comment_timeId': timeId.toString(), // Current time ID
+      'comment_text': commentText,
+    };
+
+    try {
+      final response = await http.post(
+        Uri.parse('http://localhost/evaluation_app_api/comments.php'),
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: {
+          'operation': 'addComments',
+          'json': jsonEncode(commentData),
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final result = jsonDecode(response.body);
+        if (result == 1) {
+          print('Comment added successfully!');
+        } else {
+          print('Failed to add comment.');
+        }
+      } else {
+        print('Server error: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Error adding comment: $e');
     }
   }
 
@@ -459,8 +515,8 @@ class _EvaluationPageState extends State<EvaluationPage> {
     return Scaffold(
       headers: [
         AppBar(
-          title: Text(_formatCurrentTime()),
-          subtitle: Text('${_formatTimeRange()} minutes').small(),
+          title: Text('${_formatTimeRange()} minutes'),
+          subtitle: Text(_formatCurrentTime()).small(),
           alignment: Alignment.center,
           leading: [
             OutlineButton(
@@ -474,6 +530,13 @@ class _EvaluationPageState extends State<EvaluationPage> {
           trailing: [
             OutlineButton(
               onPressed: () {
+                commentDialog();
+              },
+              density: ButtonDensity.icon,
+              child: const Icon(BootstrapIcons.chatSquareText),
+            ),
+            OutlineButton(
+              onPressed: () {
                 popover();
               },
               density: ButtonDensity.icon,
@@ -485,35 +548,54 @@ class _EvaluationPageState extends State<EvaluationPage> {
       ],
       child: Padding(
         padding: EdgeInsets.all(12),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            FutureBuilder<Map<String, List<Map<String, String>>>>(
-              future: _activitiesFuture,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return Center(
-                      child:
-                          CircularProgressIndicator()); // Show loading indicator
-                } else if (snapshot.hasError) {
-                  return Center(child: Text('Error: ${snapshot.error}'));
-                } else if (snapshot.hasData) {
-                  final activities = snapshot.data!;
-                  final studentActivities = activities['students'] ?? [];
-                  final teacherActivities = activities['teachers'] ?? [];
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              FutureBuilder<Map<String, List<Map<String, String>>>>(
+                future: _activitiesFuture,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return Center(
+                        child:
+                            CircularProgressIndicator()); // Show loading indicator
+                  } else if (snapshot.hasError) {
+                    return Center(child: Text('Error: ${snapshot.error}'));
+                  } else if (snapshot.hasData) {
+                    final activities = snapshot.data!;
+                    final studentActivities = activities['students'] ?? [];
+                    final teacherActivities = activities['teachers'] ?? [];
 
-                  // Check screen size to determine layout
-                  bool isMobile = MediaQuery.of(context).size.width < 1000;
+                    // Check screen size to determine layout
+                    bool isMobile = MediaQuery.of(context).size.width < 1000;
 
-                  return isMobile
-                      ? mobileScreen(studentActivities, teacherActivities)
-                      : desktopScreen(studentActivities, teacherActivities);
-                } else {
-                  return Center(child: Text('No activities found'));
-                }
-              },
-            ),
-          ],
+                    return isMobile
+                        ? mobileScreen(studentActivities, teacherActivities)
+                        : desktopScreen(studentActivities, teacherActivities);
+                  } else {
+                    return Center(child: Text('No activities found'));
+                  }
+                },
+              ),
+              if (activityTallies.isNotEmpty &&
+                  _currentTime ==
+                      null) // Check if tallies are not empty and timer is off
+                PrimaryButton(
+                  child: Text("Submit").small(),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => ResultPage(
+                          activityTallies: activityTallies,
+                          evalId: widget.evalId,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+            ],
+          ).gap(8),
         ),
       ),
     );
@@ -562,6 +644,25 @@ class _EvaluationPageState extends State<EvaluationPage> {
                                   .map((entry) {
                                 int index = entry.key;
                                 Map<String, String> activity = entry.value;
+
+                                Activity? matchingActivity =
+                                    activityTallies.keys.firstWhere(
+                                  (act) =>
+                                      act.activityId.toString() ==
+                                      activity['act_id'],
+                                  orElse: () => Activity(
+                                    activityId: 0,
+                                    activityName: 'Unknown',
+                                    activityCode: 'N/A',
+                                    activityPerson: 'T',
+                                    tally: 0,
+                                  ),
+                                );
+
+                                int tally = matchingActivity != null
+                                    ? activityTallies[matchingActivity] ?? 0
+                                    : 0;
+
                                 return Container(
                                   decoration: BoxDecoration(
                                     border: index ==
@@ -615,32 +716,8 @@ class _EvaluationPageState extends State<EvaluationPage> {
                                           padding: EdgeInsets.all(
                                               screenSize ? 4 : 6),
                                           child: Center(
-                                            child: Text(_activityTallies[
-                                                            activity['act_id']]
-                                                        ?.toString() ??
-                                                    '0')
-                                                .xSmall(),
-                                          ),
-                                        ),
-                                      ),
-                                      Container(
-                                        width: screenSize
-                                            ? 70
-                                            : 90, // Adjust width based on screen size
-                                        child: Padding(
-                                          padding: EdgeInsets.all(
-                                              screenSize ? 4 : 6),
-                                          child: Center(
-                                            child: IconButton.primary(
-                                              size: ButtonSize.xSmall,
-                                              onPressed: () {
-                                                commentDialog(
-                                                    activity['act_code']!);
-                                              },
-                                              density: ButtonDensity.icon,
-                                              icon: const Icon(
-                                                  RadixIcons.chatBubble),
-                                            ),
+                                            child:
+                                                Text(tally.toString()).xSmall(),
                                           ),
                                         ),
                                       ),
@@ -700,6 +777,25 @@ class _EvaluationPageState extends State<EvaluationPage> {
                                   .map((entry) {
                                 int index = entry.key;
                                 Map<String, String> activity = entry.value;
+
+                                Activity? matchingActivity =
+                                    activityTallies.keys.firstWhere(
+                                  (act) =>
+                                      act.activityId.toString() ==
+                                      activity['act_id'],
+                                  orElse: () => Activity(
+                                    activityId: 0,
+                                    activityName: 'Unknown',
+                                    activityCode: 'N/A',
+                                    activityPerson: 'T',
+                                    tally: 0,
+                                  ),
+                                );
+
+                                int tally = matchingActivity != null
+                                    ? activityTallies[matchingActivity] ?? 0
+                                    : 0;
+
                                 return Container(
                                   decoration: BoxDecoration(
                                     border: index ==
@@ -753,32 +849,8 @@ class _EvaluationPageState extends State<EvaluationPage> {
                                           padding: EdgeInsets.all(
                                               screenSize ? 4 : 6),
                                           child: Center(
-                                            child: Text(_activityTallies[
-                                                            activity['act_id']]
-                                                        ?.toString() ??
-                                                    '0')
-                                                .xSmall(),
-                                          ),
-                                        ),
-                                      ),
-                                      Container(
-                                        width: screenSize
-                                            ? 70
-                                            : 90, // Adjust width based on screen size
-                                        child: Padding(
-                                          padding: EdgeInsets.all(
-                                              screenSize ? 4 : 6),
-                                          child: Center(
-                                            child: IconButton.primary(
-                                              size: ButtonSize.xSmall,
-                                              onPressed: () {
-                                                commentDialog(
-                                                    activity['act_code']!);
-                                              },
-                                              density: ButtonDensity.icon,
-                                              icon: const Icon(
-                                                  RadixIcons.chatBubble),
-                                            ),
+                                            child:
+                                                Text(tally.toString()).xSmall(),
                                           ),
                                         ),
                                       ),
@@ -843,6 +915,25 @@ class _EvaluationPageState extends State<EvaluationPage> {
                                 studentActivities.asMap().entries.map((entry) {
                               int index = entry.key;
                               Map<String, String> activity = entry.value;
+
+                              Activity? matchingActivity =
+                                  activityTallies.keys.firstWhere(
+                                (act) =>
+                                    act.activityId.toString() ==
+                                    activity['act_id'],
+                                orElse: () => Activity(
+                                  activityId: 0,
+                                  activityName: 'Unknown',
+                                  activityCode: 'N/A',
+                                  activityPerson: 'T',
+                                  tally: 0,
+                                ),
+                              );
+
+                              int tally = matchingActivity != null
+                                  ? activityTallies[matchingActivity] ?? 0
+                                  : 0;
+
                               return Container(
                                 decoration: BoxDecoration(
                                   border: index == studentActivities.length - 1
@@ -892,33 +983,8 @@ class _EvaluationPageState extends State<EvaluationPage> {
                                         padding:
                                             EdgeInsets.all(screenSize ? 4 : 6),
                                         child: Center(
-                                          child: Text(_activityTallies[
-                                                          activity['act_id']]
-                                                      ?.toString() ??
-                                                  '0')
-                                              .xSmall(),
-                                        ),
-                                      ),
-                                    ),
-                                    Container(
-                                      width: screenSize
-                                          ? 100
-                                          : 120, // Adjust width based on screen size
-                                      child: Padding(
-                                        padding:
-                                            EdgeInsets.all(screenSize ? 4 : 6),
-                                        child: Center(
-                                          child: OutlineButton(
-                                            size: ButtonSize.small,
-                                            density: ButtonDensity.dense,
-                                            onPressed: () {
-                                              commentDialog(
-                                                  activity['act_name']!);
-                                            },
-                                            trailing: const Icon(
-                                                RadixIcons.chatBubble),
-                                            child: const Text('Comment'),
-                                          ),
+                                          child:
+                                              Text(tally.toString()).xSmall(),
                                         ),
                                       ),
                                     ),
@@ -974,6 +1040,25 @@ class _EvaluationPageState extends State<EvaluationPage> {
                                 teacherActivities.asMap().entries.map((entry) {
                               int index = entry.key;
                               Map<String, String> activity = entry.value;
+
+                              Activity? matchingActivity =
+                                  activityTallies.keys.firstWhere(
+                                (act) =>
+                                    act.activityId.toString() ==
+                                    activity['act_id'],
+                                orElse: () => Activity(
+                                  activityId: 0,
+                                  activityName: 'Unknown',
+                                  activityCode: 'N/A',
+                                  activityPerson: 'T',
+                                  tally: 0,
+                                ),
+                              );
+
+                              int tally = matchingActivity != null
+                                  ? activityTallies[matchingActivity] ?? 0
+                                  : 0;
+
                               return Container(
                                 decoration: BoxDecoration(
                                   border: index == teacherActivities.length - 1
@@ -1023,33 +1108,8 @@ class _EvaluationPageState extends State<EvaluationPage> {
                                         padding:
                                             EdgeInsets.all(screenSize ? 4 : 6),
                                         child: Center(
-                                          child: Text(_activityTallies[
-                                                          activity['act_id']]
-                                                      ?.toString() ??
-                                                  '0')
-                                              .xSmall(),
-                                        ),
-                                      ),
-                                    ),
-                                    Container(
-                                      width: screenSize
-                                          ? 100
-                                          : 120, // Adjust width based on screen size
-                                      child: Padding(
-                                        padding:
-                                            EdgeInsets.all(screenSize ? 4 : 6),
-                                        child: Center(
-                                          child: OutlineButton(
-                                            size: ButtonSize.small,
-                                            density: ButtonDensity.dense,
-                                            onPressed: () {
-                                              commentDialog(
-                                                  activity['act_name']!);
-                                            },
-                                            trailing: const Icon(
-                                                RadixIcons.chatBubble),
-                                            child: const Text('Comment'),
-                                          ),
+                                          child:
+                                              Text(tally.toString()).xSmall(),
                                         ),
                                       ),
                                     ),

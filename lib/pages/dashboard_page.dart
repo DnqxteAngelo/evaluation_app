@@ -90,7 +90,10 @@ class _DashboardPageState extends State<DashboardPage> {
                 popover();
               },
               density: ButtonDensity.icon,
-              child: const Icon(BootstrapIcons.person),
+              child: Avatar(
+                initials: Avatar.getInitials(widget.user.userFullName),
+                size: 36,
+              ),
             ),
           ],
         ),
