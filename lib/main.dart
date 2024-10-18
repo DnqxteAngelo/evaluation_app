@@ -129,7 +129,7 @@ class _MyHomePagetate extends State<MyHomePage> {
         child: Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Text("EVALUATION APP").x3Large().bold(),
+        Text("GTP Teacher Evaluation Tool").x3Large().bold(),
         SizedBox(
           height: 24,
         ),

@@ -1,15 +1,23 @@
 class College {
   final int collegeId;
   final String collegeName;
+  final String deptName;
 
-  College({required this.collegeId, required this.collegeName});
+  College(
+      {required this.collegeId,
+      required this.collegeName,
+      required this.deptName});
 }
 
 class Teacher {
   final int teacherId;
   final String teacherName;
+  final String collegeName;
 
-  Teacher({required this.teacherId, required this.teacherName});
+  Teacher(
+      {required this.teacherId,
+      required this.teacherName,
+      required this.collegeName});
 }
 
 class Department {
@@ -112,15 +120,20 @@ class Activity {
 }
 
 class CollegeTable {
+  final int collegeId;
   final String collegeName;
-  final String departmentName;
+  final String deptName;
 
-  CollegeTable({required this.collegeName, required this.departmentName});
+  CollegeTable(
+      {required this.collegeId,
+      required this.collegeName,
+      required this.deptName});
 
   factory CollegeTable.fromJson(Map<String, dynamic> json) {
     return CollegeTable(
+      collegeId: json['college_id'],
       collegeName: json['college_name'],
-      departmentName: json['dept_name'],
+      deptName: json['dept_name'],
     );
   }
 }

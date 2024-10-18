@@ -107,6 +107,7 @@ class _ProfilePageState extends State<ProfilePage> {
       fromJson: (json) => Teacher(
         teacherId: json['teacher_id'],
         teacherName: json['teacher_fullname'],
+        collegeName: json['college_name'],
       ),
     );
     setState(() => _teachers = teachers);
@@ -119,6 +120,7 @@ class _ProfilePageState extends State<ProfilePage> {
       fromJson: (json) => College(
         collegeId: json['college_id'],
         collegeName: json['college_name'],
+        deptName: json['dept_name'],
       ),
     );
     setState(() => _colleges = colleges);
@@ -290,8 +292,10 @@ class _ProfilePageState extends State<ProfilePage> {
                     itemDisplay: (id) {
                       final teacher = _teachers.firstWhere(
                         (t) => t.teacherId == id,
-                        orElse: () =>
-                            Teacher(teacherId: 0, teacherName: 'Unknown'),
+                        orElse: () => Teacher(
+                            teacherId: 0,
+                            teacherName: 'Unknown',
+                            collegeName: ''),
                       );
                       return teacher.teacherName;
                     },

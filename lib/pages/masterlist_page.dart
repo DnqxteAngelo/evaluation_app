@@ -22,24 +22,50 @@ class _MasterlistPageState extends State<MasterlistPage> {
   List<CollegeTable> collegeList = [];
   List<TeacherTable> teacherList = [];
 
+  List<College> _colleges = [];
+
+  final TextEditingController lastname = TextEditingController();
+  final TextEditingController firstname = TextEditingController();
+  final TextEditingController middlename = TextEditingController();
+  final TextEditingController rank = TextEditingController();
+  final TextEditingController profLicense = TextEditingController();
+
+  // Define the values for the select dropdowns.
+  int? selectedCollegeId;
+  String? selectedEducAttain;
+  String? selectedEmpStatus;
+
+  DateTime? yearHired;
+  DateTime? yearReg;
+
+  List<String> educAttainments = ['Bachelor', 'Master', 'Doctorate'];
+  List<String> empStatuses = ['Full-time', 'Part-time', 'Probationary'];
+
   @override
   void initState() {
     super.initState();
     fetchCollegeData(); // Fetch college data on init
+    _fetchColleges();
   }
 
   Future<void> fetchCollegeData() async {
     final response = await http.post(
-      Uri.parse(
-          'http://localhost/evaluation_app_api/college.php'), // Update with your actual URL
+      Uri.parse('http://localhost/evaluation_app_api/college.php'),
       body: {'operation': 'getCollege'},
     );
+
+    print(response.body);
 
     if (response.statusCode == 200) {
       final List<dynamic> data = json.decode(response.body);
       setState(() {
-        collegeList =
-            data.map((college) => CollegeTable.fromJson(college)).toList();
+        collegeList = data
+            .map((e) => CollegeTable(
+                  collegeId: e['college_id'],
+                  collegeName: e['college_name'],
+                  deptName: e['dept_name'],
+                ))
+            .toList();
       });
     } else {
       throw Exception('Failed to load college data');
@@ -144,70 +170,160 @@ class _MasterlistPageState extends State<MasterlistPage> {
     }
   }
 
-  void showAddTeacherDialog(BuildContext context) {
-    final TextEditingController lastname = TextEditingController();
-    final TextEditingController firstname = TextEditingController();
-    final TextEditingController middlename = TextEditingController();
-    final TextEditingController educAttain = TextEditingController();
-    final TextEditingController profLicense = TextEditingController();
-    final TextEditingController rank = TextEditingController();
-    final TextEditingController yearHired = TextEditingController();
-    final TextEditingController yearReg = TextEditingController();
-    final TextEditingController collegeId = TextEditingController();
-    final TextEditingController empStatus = TextEditingController();
+  Future<List<T>> _fetchSelect<T>({
+    required String url,
+    required Map<String, String> body,
+    required T Function(Map<String, dynamic>) fromJson,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse(url),
+        body: body,
+      );
 
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        return data.map((item) => fromJson(item)).toList();
+      } else {
+        throw Exception('Failed to load ${T.toString()}');
+      }
+    } catch (e) {
+      print('Error fetching ${T.toString()}: $e');
+      return [];
+    }
+  }
+
+  Future<void> _fetchColleges() async {
+    final colleges = await _fetchSelect<College>(
+      url: 'http://localhost/evaluation_app_api/college.php',
+      body: {'operation': 'getCollege'},
+      fromJson: (json) => College(
+        collegeId: json['college_id'],
+        collegeName: json['college_name'],
+        deptName: json['dept_name'],
+      ),
+    );
+    setState(() => _colleges = colleges);
+  }
+
+  void showAddTeacherDialog(BuildContext context) {
     showDialog(
       context: context,
       builder: (context) {
+        // Use StatefulBuilder to manage state within the dialog
         return AlertDialog(
           title: const Text('Add Teacher'),
-          content: Container(
-            width: 1000,
-            height: 300,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Wrap(
-                    spacing: 16,
-                    runSpacing: 16,
+          content: StatefulBuilder(
+            builder: (context, setState) {
+              return SizedBox(
+                width: 950,
+                height: 350,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _buildTextField('Last Name', lastname),
-                      _buildTextField('First Name', firstname),
-                      _buildTextField('Middle Name', middlename),
+                      const SizedBox(height: 24),
+                      Wrap(
+                        spacing: 16,
+                        runSpacing: 16,
+                        children: [
+                          _buildTextField('Last Name', lastname),
+                          _buildTextField('First Name', firstname),
+                          _buildTextField('Middle Name', middlename),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                      Wrap(
+                        spacing: 16,
+                        runSpacing: 16,
+                        children: [
+                          _buildSelect<int>(
+                            label: 'College',
+                            value: selectedCollegeId,
+                            items: _colleges
+                                .map((college) => college.collegeId)
+                                .toList(),
+                            onChanged: (value) {
+                              setState(() {
+                                selectedCollegeId = value;
+                              });
+                            },
+                            itemDisplay: (id) {
+                              final college = _colleges.firstWhere(
+                                  (college) => college.collegeId == id);
+                              return college.collegeName;
+                            },
+                            popupConstraints: const BoxConstraints(
+                                maxHeight: 300, maxWidth: 300),
+                          ),
+                          _buildSelect<String>(
+                            label: 'Educational Attainment',
+                            value: selectedEducAttain,
+                            items: educAttainments,
+                            onChanged: (value) {
+                              setState(() {
+                                selectedEducAttain = value;
+                              });
+                            },
+                            itemDisplay: (item) => item,
+                            popupConstraints: const BoxConstraints(
+                                maxHeight: 300, maxWidth: 300),
+                          ),
+                          _buildSelect<String>(
+                            label: 'Employment Status',
+                            value: selectedEmpStatus,
+                            items: empStatuses,
+                            onChanged: (value) {
+                              setState(() {
+                                selectedEmpStatus = value;
+                              });
+                            },
+                            itemDisplay: (item) => item,
+                            popupConstraints: const BoxConstraints(
+                                maxHeight: 300, maxWidth: 300),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                      Wrap(
+                        spacing: 16,
+                        runSpacing: 16,
+                        children: [
+                          _buildTextField('Professional License', profLicense),
+                          _buildTextField('Rank', rank),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                      Wrap(
+                        spacing: 16,
+                        runSpacing: 16,
+                        children: [
+                          _buildDatePicker(
+                            label: 'Date Hired',
+                            value: yearHired,
+                            onChanged: (value) {
+                              setState(() {
+                                yearHired = value;
+                              });
+                            },
+                          ),
+                          _buildDatePicker(
+                            label: 'Reg Date',
+                            value: yearReg,
+                            onChanged: (value) {
+                              setState(() {
+                                yearReg = value;
+                              });
+                            },
+                          ),
+                        ],
+                      ),
                     ],
                   ),
-                  const SizedBox(height: 16),
-                  Wrap(
-                    spacing: 16,
-                    runSpacing: 16,
-                    children: [
-                      _buildTextField('College', collegeId),
-                      _buildTextField('Year Hired', yearHired),
-                      _buildTextField('Reg Year', yearReg),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Wrap(
-                    spacing: 16,
-                    runSpacing: 16,
-                    children: [
-                      _buildTextField('Educational Attainment', educAttain),
-                      _buildTextField('Professional License', profLicense),
-                      _buildTextField('Rank', rank),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Wrap(
-                    spacing: 16,
-                    runSpacing: 16,
-                    children: [
-                      _buildTextField('Employment Status', empStatus),
-                    ],
-                  ),
-                ],
-              ),
-            ),
+                ),
+              );
+            },
           ),
           actions: [
             DestructiveButton(
@@ -216,22 +332,19 @@ class _MasterlistPageState extends State<MasterlistPage> {
             ),
             PrimaryButton(
               onPressed: () async {
-                int totalYears =
-                    DateTime.now().year - int.parse(yearHired.text);
+                int totalYears = DateTime.now().year - yearHired!.year;
                 final teacherData = {
                   'teacher_fullname':
                       '${lastname.text}, ${firstname.text} ${middlename.text}',
-                  'teacher_collegeId': collegeId.text, // Adjust as needed
+                  'teacher_collegeId': selectedCollegeId.toString(),
                   'teacher_totalYears': totalYears.toString(),
-                  'teacher_yearHired': yearHired.text,
-                  'teacher_yearReg': yearReg.text,
-                  'teacher_educAttain': educAttain.text,
+                  'teacher_yearHired': yearHired!.year.toString(),
+                  'teacher_yearReg': yearReg!.year.toString(),
+                  'teacher_educAttain': selectedEducAttain,
                   'teacher_profLicense': profLicense.text,
-                  'teacher_empStatus': empStatus.text,
+                  'teacher_empStatus': selectedEmpStatus,
                   'teacher_rank': rank.text,
                 };
-
-                print(totalYears);
 
                 final response = await http.post(
                   Uri.parse('http://localhost/evaluation_app_api/teacher.php'),
@@ -274,9 +387,66 @@ class _MasterlistPageState extends State<MasterlistPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label).semiBold().small(),
+          Text(
+            label,
+            style: const TextStyle(color: Colors.black),
+          ).semiBold().small(),
           const SizedBox(height: 8),
           TextField(controller: controller),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSelect<T>({
+    required String label,
+    required T? value,
+    required List<T> items,
+    required void Function(T?) onChanged,
+    required String Function(T item) itemDisplay,
+    required BoxConstraints popupConstraints,
+  }) {
+    return SizedBox(
+      width: 300, // Adjust width as needed
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(color: Colors.black),
+          ).semiBold().small(), // Reusable label
+          const SizedBox(height: 8),
+          Container(
+            width: double.infinity,
+            child: Select<T>(
+              itemBuilder: (context, item) {
+                return Text(itemDisplay(item)); // Display the item name
+              },
+              searchFilter: (item, query) {
+                return itemDisplay(item)
+                        .toLowerCase()
+                        .contains(query.toLowerCase())
+                    ? 1
+                    : 0;
+              },
+              autoClosePopover: true,
+              popupConstraints: popupConstraints,
+              onChanged: onChanged,
+              value: value,
+              placeholder: Align(
+                alignment: Alignment.centerLeft, // Align to the start
+                child: Text('Select $label',
+                    style: const TextStyle(color: Colors.gray),
+                    selectionColor: Colors.gray),
+              ),
+              children: items
+                  .map((item) => SelectItemButton(
+                        value: item,
+                        child: Text(itemDisplay(item)),
+                      ))
+                  .toList(),
+            ),
+          ),
         ],
       ),
     );
@@ -288,21 +458,31 @@ class _MasterlistPageState extends State<MasterlistPage> {
     required DateTime? value,
     required Function(DateTime?) onChanged,
   }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label).semiBold().small(),
-        const SizedBox(height: 8),
-        DatePicker(
-          initialView: CalendarView.now(),
-          value: value,
-          mode: PromptMode.popover,
-          stateBuilder: (date) => date.isAfter(DateTime.now())
-              ? DateState.disabled
-              : DateState.enabled,
-          onChanged: onChanged,
-        ),
-      ],
+    return SizedBox(
+      width: 300,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(color: Colors.black),
+          ).semiBold().small(),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: DatePicker(
+              initialView: CalendarView.now(),
+              initialViewType: CalendarViewType.year,
+              value: value,
+              mode: PromptMode.popover,
+              stateBuilder: (date) => date.isAfter(DateTime.now())
+                  ? DateState.disabled
+                  : DateState.enabled,
+              onChanged: onChanged,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -345,7 +525,7 @@ class _MasterlistPageState extends State<MasterlistPage> {
       rows: collegeList.map((college) {
         return material.DataRow(cells: [
           material.DataCell(Text(college.collegeName)),
-          material.DataCell(Text(college.departmentName)),
+          material.DataCell(Text(college.deptName)),
         ]);
       }).toList(),
     );
