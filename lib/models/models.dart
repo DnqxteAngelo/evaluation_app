@@ -156,3 +156,33 @@ class TeacherTable {
     );
   }
 }
+
+class EvaluationDetails {
+  final String teacherFullname;
+  final String evalSubject;
+  final String evalDate;
+
+  EvaluationDetails({
+    required this.teacherFullname,
+    required this.evalSubject,
+    required this.evalDate,
+  });
+
+  // Factory constructor to create an instance from JSON.
+  factory EvaluationDetails.fromJson(Map<String, dynamic> json) {
+    return EvaluationDetails(
+      teacherFullname: json['teacher_fullname'] ?? 'Unknown',
+      evalSubject: json['eval_subject'] ?? 'N/A',
+      evalDate: json['eval_date'] ?? 'N/A',
+    );
+  }
+
+  // Method to convert the object back to JSON (if needed).
+  Map<String, dynamic> toJson() {
+    return {
+      'teacher_fullname': teacherFullname,
+      'eval_subject': evalSubject,
+      'eval_date': evalDate,
+    };
+  }
+}

@@ -85,11 +85,6 @@ class _EvaluationPageState extends State<EvaluationPage> {
             activityTallies[activity] =
                 count; // Store the tally with the activity as key
           }
-
-          print('Activity Tallies:');
-          activityTallies.forEach((activity, tally) {
-            print('${activity.activityName}: $tally');
-          });
         });
       } else {
         print('Failed to load tallies: ${response.statusCode}');

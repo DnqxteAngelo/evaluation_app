@@ -1,6 +1,7 @@
 import 'package:evaluation_app/models/models.dart';
 import 'package:evaluation_app/pages/masterlist_page.dart';
 import 'package:evaluation_app/pages/profile_page.dart';
+import 'package:evaluation_app/pages/records_page.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 
 class DashboardPage extends StatefulWidget {
@@ -146,7 +147,14 @@ class _DashboardPageState extends State<DashboardPage> {
               width: 400,
               child: OutlineButton(
                 alignment: Alignment.center,
-                onPressed: () {},
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => RecordsPage(),
+                    ),
+                  );
+                },
                 size: isMobile ? ButtonSize.large : ButtonSize.xLarge,
                 leading: const Icon(BootstrapIcons.barChartLine),
                 child: const Text('Records'),

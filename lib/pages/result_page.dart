@@ -110,75 +110,86 @@ class _ResultPageState extends State<ResultPage> {
         ),
         const Divider(),
       ],
-      child: Center(
-        child: FutureBuilder<List<dynamic>>(
-          future: _evaluationDetails,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const CircularProgressIndicator();
-            } else if (snapshot.hasError) {
-              return Text('Error: ${snapshot.error}');
-            } else if (snapshot.hasData && snapshot.data!.isNotEmpty) {
-              var evaluationData = snapshot.data!.first;
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Card(
+          padding: const EdgeInsets.all(24),
+          child: Center(
+            child: FutureBuilder<List<dynamic>>(
+              future: _evaluationDetails,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const CircularProgressIndicator();
+                } else if (snapshot.hasError) {
+                  return Text('Error: ${snapshot.error}');
+                } else if (snapshot.hasData && snapshot.data!.isNotEmpty) {
+                  var evaluationData = snapshot.data!.first;
 
-              return Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                          'Teacher Name: ${evaluationData['teacher_fullname']}'),
-                      Text('Subject: ${evaluationData['eval_subject']}'),
-                      Text('Date: ${evaluationData['eval_date']}'),
-                      const Divider(),
-                      const SizedBox(height: 24),
-                      PieChartWidget(activityTallies: widget.activityTallies),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  return Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Student Actions
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                const Text('Student Actions').bold().medium(),
-                                const SizedBox(height: 4),
-                                _buildActivityList(studentActivities),
-                                const SizedBox(height: 4),
-                                Text(
-                                  '% of Student Actions: ${studentPercentage.toStringAsFixed(2)}%',
-                                ).semiBold().small(),
-                              ],
-                            ),
-                          ),
+                          Text(
+                              'Teacher Name: ${evaluationData['teacher_fullname']}'),
+                          Text('Subject: ${evaluationData['eval_subject']}'),
+                          Text('Date: ${evaluationData['eval_date']}'),
+                          const Divider(),
+                          const SizedBox(height: 24),
+                          PieChartWidget(
+                              activityTallies: widget.activityTallies),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                            children: [
+                              // Student Actions
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  children: [
+                                    const Text('Student Actions')
+                                        .bold()
+                                        .medium(),
+                                    const SizedBox(height: 4),
+                                    _buildActivityList(studentActivities),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      '% of Student Actions: ${studentPercentage.toStringAsFixed(2)}%',
+                                    ).semiBold().small(),
+                                  ],
+                                ),
+                              ),
 
-                          const SizedBox(width: 20),
+                              const SizedBox(width: 20),
 
-                          // Teacher Actions
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                const Text('Teacher Actions').bold().medium(),
-                                const SizedBox(height: 4),
-                                _buildActivityList(teacherActivities),
-                                const SizedBox(height: 4),
-                                Text(
-                                  '% of Teacher Actions: ${teacherPercentage.toStringAsFixed(2)}%',
-                                ).semiBold().small(),
-                              ],
-                            ),
+                              // Teacher Actions
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  children: [
+                                    const Text('Teacher Actions')
+                                        .bold()
+                                        .medium(),
+                                    const SizedBox(height: 4),
+                                    _buildActivityList(teacherActivities),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      '% of Teacher Actions: ${teacherPercentage.toStringAsFixed(2)}%',
+                                    ).semiBold().small(),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
-                    ],
-                  ),
-                ),
-              );
-            }
-            return const Text('No data found.');
-          },
+                    ),
+                  );
+                }
+                return const Text('No data found.');
+              },
+            ),
+          ),
         ),
       ),
     );
