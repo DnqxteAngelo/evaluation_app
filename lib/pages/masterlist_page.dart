@@ -498,7 +498,6 @@ class _MasterlistPageState extends State<MasterlistPage> {
   }
 
   NavigationRailAlignment alignment = NavigationRailAlignment.start;
-  NavigationLabelType labelType = NavigationLabelType.all;
 
   NavigationButton buildButton(String label, IconData icon) {
     return NavigationButton(
@@ -509,55 +508,108 @@ class _MasterlistPageState extends State<MasterlistPage> {
 
   // Table for College data
   Widget buildCollegeTable() {
-    return material.DataTable(
-      columns: const [
-        material.DataColumn(
-            label: Text(
-          'College Name',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        )),
-        material.DataColumn(
-            label: Text(
-          'Department Name',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        )),
-      ],
-      rows: collegeList.map((college) {
-        return material.DataRow(cells: [
-          material.DataCell(Text(college.collegeName)),
-          material.DataCell(Text(college.deptName)),
-        ]);
-      }).toList(),
+    String? lastDeptName;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isSmallScreen = screenWidth < 600;
+
+    return material.Theme(
+      data: material.Theme.of(context).copyWith(
+        dataTableTheme: material.DataTableThemeData(
+          headingTextStyle: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: isSmallScreen ? 14 : 16,
+          ),
+          dataTextStyle: TextStyle(
+            fontSize: isSmallScreen ? 13 : 14,
+          ),
+          horizontalMargin: isSmallScreen ? 10 : 24,
+          columnSpacing: isSmallScreen ? 20 : 56,
+        ),
+      ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            minWidth: screenWidth * 0.9,
+          ),
+          child: material.DataTable(
+            columnSpacing: isSmallScreen ? 20 : 56,
+            horizontalMargin: isSmallScreen ? 10 : 24,
+            columns: [
+              if (!isSmallScreen)
+                const material.DataColumn(
+                  label: Text('College'),
+                ),
+              const material.DataColumn(
+                label: Text('Program Name'),
+              ),
+            ],
+            rows: collegeList.map((college) {
+              bool showDeptName = college.deptName != lastDeptName;
+              lastDeptName = college.deptName;
+
+              return material.DataRow(cells: [
+                if (!isSmallScreen)
+                  material.DataCell(
+                    showDeptName
+                        ? Text(college.deptName)
+                        : const SizedBox.shrink(),
+                  ),
+                material.DataCell(Text(college.collegeName)),
+              ]);
+            }).toList(),
+          ),
+        ),
+      ),
     );
   }
 
-  // Table for Teacher data
+// Table for Teacher data
   Widget buildTeacherTable() {
-    return material.DataTable(
-      columns: const [
-        material.DataColumn(
-            label: Text(
-          'Name',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        )),
-        material.DataColumn(
-            label: Text(
-          'College Name',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        )),
-        material.DataColumn(
-            label: Text(
-          'Employment Status',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        )),
-      ],
-      rows: teacherList.map((teacher) {
-        return material.DataRow(cells: [
-          material.DataCell(Text(teacher.fullname)),
-          material.DataCell(Text(teacher.collegeName)),
-          material.DataCell(Text(teacher.empStatus)),
-        ]);
-      }).toList(),
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isSmallScreen = screenWidth < 600;
+
+    return material.Theme(
+      data: material.Theme.of(context).copyWith(
+        dataTableTheme: material.DataTableThemeData(
+          headingTextStyle: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: isSmallScreen ? 14 : 16,
+          ),
+          dataTextStyle: TextStyle(
+            fontSize: isSmallScreen ? 13 : 14,
+          ),
+          horizontalMargin: isSmallScreen ? 10 : 24,
+          columnSpacing: isSmallScreen ? 20 : 56,
+        ),
+      ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            minWidth: screenWidth * 0.9,
+          ),
+          child: material.DataTable(
+            columnSpacing: isSmallScreen ? 20 : 56,
+            horizontalMargin: isSmallScreen ? 10 : 24,
+            // For mobile, you might want to show fewer columns
+            columns: [
+              const material.DataColumn(label: Text('Name')),
+              if (!isSmallScreen) // Only show on larger screens
+                const material.DataColumn(label: Text('College Name')),
+              const material.DataColumn(label: Text('Status')),
+            ],
+            rows: teacherList.map((teacher) {
+              return material.DataRow(cells: [
+                material.DataCell(Text(teacher.fullname)),
+                if (!isSmallScreen)
+                  material.DataCell(Text(teacher.collegeName)),
+                material.DataCell(Text(teacher.empStatus)),
+              ]);
+            }).toList(),
+          ),
+        ),
+      ),
     );
   }
 
@@ -599,6 +651,9 @@ class _MasterlistPageState extends State<MasterlistPage> {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isSmallScreen = screenWidth < 600;
+
     return Scaffold(
       headers: [
         AppBar(
@@ -620,7 +675,9 @@ class _MasterlistPageState extends State<MasterlistPage> {
         children: [
           NavigationRail(
             alignment: alignment,
-            labelType: labelType,
+            labelType: isSmallScreen
+                ? NavigationLabelType.tooltip
+                : NavigationLabelType.all,
             index: selected,
             onSelected: onTabSelected,
             children: [

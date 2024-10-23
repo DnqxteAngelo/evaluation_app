@@ -1,4 +1,5 @@
 import 'package:evaluation_app/models/models.dart';
+import 'package:evaluation_app/pages/evaluation_page.dart';
 import 'package:evaluation_app/pages/masterlist_page.dart';
 import 'package:evaluation_app/pages/profile_page.dart';
 import 'package:evaluation_app/pages/records_page.dart';
@@ -113,9 +114,7 @@ class _DashboardPageState extends State<DashboardPage> {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => ProfilePage(
-                        user: widget.user,
-                      ),
+                      builder: (context) => EvaluationPage(evalId: 5),
                     ),
                   );
                 },

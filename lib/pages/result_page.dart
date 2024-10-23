@@ -1,3 +1,4 @@
+import 'package:evaluation_app/components/activity_summary.dart';
 import 'package:evaluation_app/components/pie_chart_widget.dart';
 import 'package:evaluation_app/models/models.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
@@ -49,49 +50,15 @@ class _ResultPageState extends State<ResultPage> {
     }
   }
 
-  // Calculate the sum of a specific range of activities
-  int _calculateSumInRange(
-      List<MapEntry<Activity, int>> activities, String start, String end) {
-    bool inRange = false;
-    int sum = 0;
-
-    for (var entry in activities) {
-      if (entry.key.activityName == start) {
-        inRange = true; // Start summing from this point
-      }
-      if (inRange) {
-        sum += entry.value;
-      }
-      if (entry.key.activityName == end) {
-        break; // Stop summing after reaching the end
-      }
-    }
-    return sum;
-  }
-
-  double _calculatePercentage(
-      List<MapEntry<Activity, int>> activities, String start, String end) {
-    int rangeSum = _calculateSumInRange(activities, start, end);
-    int totalSum = activities.fold(0, (sum, entry) => sum + entry.value);
-
-    // Avoid division by zero
-    return totalSum == 0 ? 0 : (rangeSum / totalSum) * 100;
-  }
-
   @override
   Widget build(BuildContext context) {
+    print(widget.activityTallies);
     final studentActivities = widget.activityTallies.entries
         .where((entry) => entry.key.activityPerson == 'S')
         .toList();
     final teacherActivities = widget.activityTallies.entries
         .where((entry) => entry.key.activityPerson == 'T')
         .toList();
-
-    // Calculate percentages for students and teachers
-    double studentPercentage = _calculatePercentage(
-        studentActivities, 'Individual Thinking', 'Test/Quiz');
-    double teacherPercentage = _calculatePercentage(
-        teacherActivities, 'Moving/Guiding', 'Demonstrate/Video');
 
     return Scaffold(
       headers: [
@@ -139,47 +106,14 @@ class _ResultPageState extends State<ResultPage> {
                           const SizedBox(height: 24),
                           PieChartWidget(
                               activityTallies: widget.activityTallies),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                            children: [
-                              // Student Actions
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.center,
-                                  children: [
-                                    const Text('Student Actions')
-                                        .bold()
-                                        .medium(),
-                                    const SizedBox(height: 4),
-                                    _buildActivityList(studentActivities),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      '% of Student Actions: ${studentPercentage.toStringAsFixed(2)}%',
-                                    ).semiBold().small(),
-                                  ],
-                                ),
-                              ),
-
-                              const SizedBox(width: 20),
-
-                              // Teacher Actions
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.center,
-                                  children: [
-                                    const Text('Teacher Actions')
-                                        .bold()
-                                        .medium(),
-                                    const SizedBox(height: 4),
-                                    _buildActivityList(teacherActivities),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      '% of Teacher Actions: ${teacherPercentage.toStringAsFixed(2)}%',
-                                    ).semiBold().small(),
-                                  ],
-                                ),
-                              ),
-                            ],
+                          const SizedBox(height: 16),
+                          ActivitySummaryWidget(
+                            studentActivities: studentActivities,
+                            teacherActivities: teacherActivities,
+                            studentStart: 'Individual Thinking',
+                            studentEnd: 'Test/Quiz',
+                            teacherStart: 'Moving/Guiding',
+                            teacherEnd: 'Demonstrate/Video',
                           ),
                         ],
                       ),
@@ -192,27 +126,6 @@ class _ResultPageState extends State<ResultPage> {
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildActivityList(List<MapEntry<Activity, int>> activities) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: activities.map((entry) {
-        return Padding(
-          padding: const EdgeInsets.symmetric(vertical: 2.0),
-          child: Container(
-            width: 250,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(entry.key.activityName).semiBold().small(),
-                Text(entry.value.toString()).small(),
-              ],
-            ),
-          ),
-        );
-      }).toList(),
     );
   }
 }

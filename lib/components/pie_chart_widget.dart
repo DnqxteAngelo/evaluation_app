@@ -21,27 +21,45 @@ class PieChartWidget extends StatelessWidget {
       builder: (context, constraints) {
         bool isDesktop = constraints.maxWidth > 600;
 
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Expanded(
-              child: _buildChartSection(
-                'Student Activities',
-                studentActivities,
-                isDesktop,
-              ),
-            ),
-            if (isDesktop) const SizedBox(width: 32),
-            Expanded(
-              child: _buildChartSection(
-                'Teacher Activities',
-                teacherActivities,
-                isDesktop,
-              ),
-            ),
-          ],
-        );
+        return isDesktop
+            ? Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Expanded(
+                    child: _buildChartSection(
+                      'Student Activities',
+                      studentActivities,
+                      isDesktop,
+                    ),
+                  ),
+                  if (isDesktop) const SizedBox(width: 32),
+                  Expanded(
+                    child: _buildChartSection(
+                      'Teacher Activities',
+                      teacherActivities,
+                      isDesktop,
+                    ),
+                  ),
+                ],
+              )
+            : SingleChildScrollView(
+                child: Column(
+                  children: [
+                    _buildChartSection(
+                      'Student Activities',
+                      studentActivities,
+                      isDesktop,
+                    ),
+                    const SizedBox(height: 32),
+                    _buildChartSection(
+                      'Teacher Activities',
+                      teacherActivities,
+                      isDesktop,
+                    ),
+                  ],
+                ),
+              );
       },
     );
   }
@@ -93,6 +111,10 @@ class PieChartWidget extends StatelessWidget {
           : Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
+                Text(title).bold(),
+                const SizedBox(
+                  height: 10,
+                ),
                 // Pie Chart
                 SizedBox(
                   height: 200,

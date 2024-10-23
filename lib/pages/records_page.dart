@@ -1,3 +1,4 @@
+import 'package:evaluation_app/components/activity_summary.dart';
 import 'package:evaluation_app/components/pie_chart_widget.dart';
 import 'package:evaluation_app/models/models.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
@@ -121,67 +122,128 @@ class _RecordsPageState extends State<RecordsPage> {
     setState(() => _period = periods);
   }
 
-  // Future<EvaluationDetails?> fetchEvaluationDetails() async {
-  //   try {
-  //     final response = await http.post(
-  //       Uri.parse('http://localhost/evaluation_app_api/evaluation.php'),
-  //       body: {
-  //         'operation': 'getEvaluationDetails',
-  //         'json': json.encode({
-  //           'eval_periodId': selectedPeriodId,
-  //           'eval_teacherId': selectedTeacherId,
-  //           'eval_semesterId': selectedSemesterId,
-  //           'eval_schoolyearId': selectedSchoolyearId,
-  //         }),
-  //       },
-  //     );
+  Future<EvaluationDetails?> fetchEvaluationDetails() async {
+    try {
+      final response = await http.post(
+        Uri.parse('http://localhost/evaluation_app_api/evaluation.php'),
+        body: {
+          'operation': 'getEvaluationDetails',
+          'json': json.encode({
+            'eval_periodId': selectedPeriodId,
+            'eval_teacherId': selectedTeacherId,
+            'eval_semesterId': selectedSemesterId,
+            'eval_schoolyearId': selectedSchoolyearId,
+          }),
+        },
+      );
 
-  //     print(response.body);
+      print('Response body: ${response.body}'); // For debugging
 
-  //     if (response.statusCode == 200) {
-  //       final data = json.decode(response.body);
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
 
-  //       print(data);
-  //       if (data.isNotEmpty) {
-  //         return EvaluationDetails.fromJson(data[0]); // Parse first element
-  //       } else {
-  //         print('No data found.');
-  //       }
-  //     } else {
-  //       print('Failed to fetch evaluation details: ${response.statusCode}');
-  //     }
-  //   } catch (e) {
-  //     print('Error fetching evaluation details: $e');
-  //   }
-  //   return null; // Return null if no data or error occurs
-  // }
+        print('Parsed data: $data'); // For debugging
+        if (data != null && data.isNotEmpty) {
+          // Parse the object directly, not as an array
+          return EvaluationDetails.fromJson(data);
+        } else {
+          print('No data found.');
+        }
+      } else {
+        print('Failed to fetch evaluation details: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Error fetching evaluation details: $e');
+    }
+    return null; // Return null if no data or error occurs
+  }
 
-  // Future<void> _loadEvaluationDetails() async {
-  //   final details = await fetchEvaluationDetails();
-  //   setState(() {
-  //     _evaluationDetails = details;
-  //   });
-  // }
+  Future<void> _loadEvaluationDetails() async {
+    final details = await fetchEvaluationDetails();
+    setState(() {
+      _evaluationDetails = details;
+    });
+  }
 
-  // Widget _buildEvaluationCard() {
-  //   return Expanded(
-  //     child: Row(
-  //       children: [
-  //         Text(
-  //           'Teacher: ${_evaluationDetails?.teacherFullname ?? ' '}',
-  //         ),
-  //         const SizedBox(width: 8),
-  //         Text(
-  //           'Subject: ${_evaluationDetails?.evalSubject ?? ' '}',
-  //         ),
-  //         const SizedBox(width: 8),
-  //         Text(
-  //           'Date: ${_evaluationDetails?.evalDate ?? ' '}',
-  //         ),
-  //       ],
-  //     ),
-  //   );
-  // }
+  Widget _buildEvaluationCard() {
+    final isMobile = MediaQuery.of(context).size.width < 800;
+    return isMobile
+        ? Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Text(
+                    'Teacher: ',
+                  ).bold().small(),
+                  Text(
+                    _evaluationDetails?.teacherFullname ?? ' ',
+                  ).small(),
+                ],
+              ),
+              const SizedBox(width: 8),
+              Row(
+                children: [
+                  const Text(
+                    'Subject: ',
+                  ).bold().small(),
+                  Text(
+                    _evaluationDetails?.evalSubject ?? ' ',
+                  ).small(),
+                ],
+              ),
+              const SizedBox(width: 8),
+              Row(
+                children: [
+                  const Text(
+                    'Date: ',
+                  ).bold().small(),
+                  Text(
+                    _evaluationDetails?.evalDate ?? ' ',
+                  ).small(),
+                ],
+              ),
+            ],
+          )
+        : Expanded(
+            child: Row(
+              children: [
+                Row(
+                  children: [
+                    const Text(
+                      'Teacher: ',
+                    ).bold().small(),
+                    Text(
+                      _evaluationDetails?.teacherFullname ?? ' ',
+                    ).small(),
+                  ],
+                ),
+                const SizedBox(width: 8),
+                Row(
+                  children: [
+                    const Text(
+                      'Subject: ',
+                    ).bold().small(),
+                    Text(
+                      _evaluationDetails?.evalSubject ?? ' ',
+                    ).small(),
+                  ],
+                ),
+                const SizedBox(width: 8),
+                Row(
+                  children: [
+                    const Text(
+                      'Date: ',
+                    ).bold().small(),
+                    Text(
+                      _evaluationDetails?.evalDate ?? ' ',
+                    ).small(),
+                  ],
+                ),
+              ],
+            ),
+          );
+  }
 
   Future<void> fetchActivityTallies() async {
     try {
@@ -289,6 +351,7 @@ class _RecordsPageState extends State<RecordsPage> {
   }
 
   void open(BuildContext context, int count) {
+    final isMobile = MediaQuery.of(context).size.width < 600;
     openDrawer(
       context: context,
       showDragHandle: false,
@@ -378,7 +441,7 @@ class _RecordsPageState extends State<RecordsPage> {
                   PrimaryButton(
                     onPressed: () {
                       fetchActivityTallies();
-                      // _loadEvaluationDetails();
+                      _loadEvaluationDetails();
                     },
                     child: const Text('Save Changes'),
                   ),
@@ -388,12 +451,18 @@ class _RecordsPageState extends State<RecordsPage> {
           },
         );
       },
-      position: OverlayPosition.right,
+      position: isMobile ? OverlayPosition.bottom : OverlayPosition.right,
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final studentActivities = _activityTallies.entries
+        .where((entry) => entry.key.activityPerson == 'S')
+        .toList();
+    final teacherActivities = _activityTallies.entries
+        .where((entry) => entry.key.activityPerson == 'T')
+        .toList();
     if (_isLoading) {
       return const Scaffold(
         child: Center(child: CircularProgressIndicator()),
@@ -416,11 +485,11 @@ class _RecordsPageState extends State<RecordsPage> {
         ),
       );
     }
-
+    final isMobile = MediaQuery.of(context).size.width < 800;
     return Scaffold(
       headers: [
         AppBar(
-          title: const Text('Results'),
+          title: const Text('Records'),
           leading: [
             OutlineButton(
               onPressed: () {
@@ -441,24 +510,51 @@ class _RecordsPageState extends State<RecordsPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    // Evaluation Card and Filter Button in a Row
-                    // _buildEvaluationCard(),
-                    PrimaryButton(
-                      onPressed: () {
-                        open(context, 0);
-                      },
-                      trailing: const Icon(BootstrapIcons.filter),
-                      child: const Text("Filter"),
-                    ),
-                  ],
-                ),
+                isMobile
+                    ? Column(
+                        children: [
+                          // Evaluation Card and Filter Button in a Row
+                          _buildEvaluationCard(),
+                          PrimaryButton(
+                            onPressed: () {
+                              open(context, 0);
+                            },
+                            trailing: const Icon(BootstrapIcons.filter),
+                            child: const Text("Filter"),
+                          ),
+                        ],
+                      ).gap(4)
+                    : Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          // Evaluation Card and Filter Button in a Row
+                          _buildEvaluationCard(),
+                          PrimaryButton(
+                            onPressed: () {
+                              open(context, 0);
+                            },
+                            trailing: const Icon(BootstrapIcons.filter),
+                            child: const Text("Filter"),
+                          ),
+                        ],
+                      ),
                 const SizedBox(height: 16),
                 // Activity Tallies or No Records Message
                 _activityTallies.isNotEmpty
-                    ? PieChartWidget(activityTallies: _activityTallies)
+                    ? Column(
+                        children: [
+                          PieChartWidget(activityTallies: _activityTallies),
+                          const SizedBox(height: 16),
+                          ActivitySummaryWidget(
+                            studentActivities: studentActivities,
+                            teacherActivities: teacherActivities,
+                            studentStart: 'Individual Thinking',
+                            studentEnd: 'Test/Quiz',
+                            teacherStart: 'Moving/Guiding',
+                            teacherEnd: 'Demonstrate/Video',
+                          ),
+                        ],
+                      )
                     : Center(
                         child: const Text("No records found.").bold().large(),
                       ),
