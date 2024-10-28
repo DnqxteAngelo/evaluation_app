@@ -57,7 +57,7 @@ class _MyHomePagetate extends State<MyHomePage> {
       return; // Stop the login process if fields are empty
     }
 
-    String url = "http://localhost/evaluation_app_api/auth.php";
+    String url = "${DatabaseURL.databaseURL}/auth.php";
 
     final Map<String, dynamic> jsonData = {
       "username": _usernameController.text,
@@ -128,8 +128,10 @@ class _MyHomePagetate extends State<MyHomePage> {
     return Scaffold(
         child: Column(
       mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Center(child: Text("GTP Teacher Evaluation Tool").x3Large().bold()),
+        Text("GTP Teacher").x3Large().bold().center(),
+        Text("Evaluation Tool").x3Large().bold().center(),
         SizedBox(
           height: 24,
         ),

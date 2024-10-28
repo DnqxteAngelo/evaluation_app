@@ -75,7 +75,7 @@ class _RecordsPageState extends State<RecordsPage> {
 
   Future<void> _fetchTeachers() async {
     final teachers = await _fetchSelect<Teacher>(
-      url: 'http://localhost/evaluation_app_api/teacher.php',
+      url: '${DatabaseURL.databaseURL}/teacher.php',
       body: {'operation': 'getTeacher'},
       fromJson: (json) => Teacher(
         teacherId: json['teacher_id'],
@@ -88,7 +88,7 @@ class _RecordsPageState extends State<RecordsPage> {
 
   Future<void> _fetchSemesters() async {
     final semesters = await _fetchSelect<Semester>(
-      url: 'http://localhost/evaluation_app_api/evaluation.php',
+      url: '${DatabaseURL.databaseURL}/evaluation.php',
       body: {'operation': 'getSemester'},
       fromJson: (json) => Semester(
         semesterId: json['sem_id'],
@@ -100,7 +100,7 @@ class _RecordsPageState extends State<RecordsPage> {
 
   Future<void> _fetchSchoolYears() async {
     final schoolyears = await _fetchSelect<SchoolYear>(
-      url: 'http://localhost/evaluation_app_api/evaluation.php',
+      url: '${DatabaseURL.databaseURL}/evaluation.php',
       body: {'operation': 'getSchoolYear'},
       fromJson: (json) => SchoolYear(
         syId: json['sy_id'],
@@ -112,7 +112,7 @@ class _RecordsPageState extends State<RecordsPage> {
 
   Future<void> _fetchPeriods() async {
     final periods = await _fetchSelect<Period>(
-      url: 'http://localhost/evaluation_app_api/evaluation.php',
+      url: '${DatabaseURL.databaseURL}/evaluation.php',
       body: {'operation': 'getPeriod'},
       fromJson: (json) => Period(
         periodId: json['period_id'],
@@ -125,7 +125,7 @@ class _RecordsPageState extends State<RecordsPage> {
   Future<EvaluationDetails?> fetchEvaluationDetails() async {
     try {
       final response = await http.post(
-        Uri.parse('http://localhost/evaluation_app_api/evaluation.php'),
+        Uri.parse('${DatabaseURL.databaseURL}/evaluation.php'),
         body: {
           'operation': 'getEvaluationDetails',
           'json': json.encode({
@@ -248,7 +248,7 @@ class _RecordsPageState extends State<RecordsPage> {
   Future<void> fetchActivityTallies() async {
     try {
       final response = await http.post(
-        Uri.parse('http://localhost/evaluation_app_api/evaluation.php'),
+        Uri.parse('${DatabaseURL.databaseURL}/evaluation.php'),
         body: {
           'operation': 'getEvaluationRecords',
           'json': json.encode(

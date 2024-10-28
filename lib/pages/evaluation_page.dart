@@ -50,7 +50,7 @@ class _EvaluationPageState extends State<EvaluationPage> {
   Future<void> fetchActivityTallies() async {
     try {
       final response = await http.post(
-        Uri.parse('http://localhost/evaluation_app_api/transaction.php'),
+        Uri.parse('${DatabaseURL.databaseURL}/transaction.php'),
         body: {
           'operation': 'countActivityTally',
           'json': json.encode({'trans_evalId': widget.evalId.toString()}),
@@ -98,7 +98,7 @@ class _EvaluationPageState extends State<EvaluationPage> {
     try {
       final response = await http.post(
         Uri.parse(
-            'http://localhost/evaluation_app_api/transaction.php'), // Replace with your server URL
+            '${DatabaseURL.databaseURL}/transaction.php'), // Replace with your server URL
         body: {'operation': 'getTimeRange'},
       );
 
@@ -137,7 +137,7 @@ class _EvaluationPageState extends State<EvaluationPage> {
   }
 
   void _startRange() {
-    _range = Timer.periodic(const Duration(seconds: 5), (timer) async {
+    _range = Timer.periodic(const Duration(seconds: 1), (timer) async {
       // Add transactions for current time range if any activities are checked
       await _addTransactions();
 
@@ -154,7 +154,7 @@ class _EvaluationPageState extends State<EvaluationPage> {
 
       // Stop the timer after 90 minutes
       if (_hasExceededTimeLimit()) {
-        _stopRange();
+        _stopTimers();
       }
     });
   }
@@ -162,7 +162,11 @@ class _EvaluationPageState extends State<EvaluationPage> {
   bool _hasExceededTimeLimit() {
     final elapsedMinutes =
         getPhilippineTime().difference(_startTime!).inMinutes;
-    return elapsedMinutes >= 90; // Check if 90 minutes have passed
+
+    // Check if time exceeds 90 minutes or if the last index of _timeRanges is reached
+    final isLastIndexReached = _currentRangeIndex >= _timeRanges.length - 1;
+
+    return elapsedMinutes >= 90 || isLastIndexReached;
   }
 
   void _stopTimers() {
@@ -227,8 +231,7 @@ class _EvaluationPageState extends State<EvaluationPage> {
   Future<void> _addTransactions() async {
     if (!_hasCheckedActivities()) return; // Exit if no activities are checked
 
-    final url =
-        Uri.parse('http://localhost/evaluation_app_api/transaction.php');
+    final url = Uri.parse('${DatabaseURL.databaseURL}/transaction.php');
 
     List<Map<String, String>> allTransactions = []; // Store as Strings
 
@@ -319,7 +322,7 @@ class _EvaluationPageState extends State<EvaluationPage> {
 
   Future<Map<String, List<Map<String, String>>>> fetchActivities() async {
     final url = Uri.parse(
-        'http://localhost/evaluation_app_api/transaction.php'); // Replace with your actual API endpoint
+        '${DatabaseURL.databaseURL}/transaction.php'); // Replace with your actual API endpoint
     final response = await http.post(url, body: {
       'operation': 'getActivities',
     });
@@ -480,7 +483,7 @@ class _EvaluationPageState extends State<EvaluationPage> {
 
     try {
       final response = await http.post(
-        Uri.parse('http://localhost/evaluation_app_api/comments.php'),
+        Uri.parse('${DatabaseURL.databaseURL}/comments.php'),
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
         },
@@ -507,11 +510,12 @@ class _EvaluationPageState extends State<EvaluationPage> {
 
   @override
   Widget build(BuildContext context) {
+    bool isMobile = MediaQuery.of(context).size.width < 1000;
     return Scaffold(
       headers: [
         AppBar(
-          title: Text('${_formatTimeRange()} minutes'),
-          subtitle: Text(_formatCurrentTime()).small(),
+          // title: Text('${_formatTimeRange()} minutes'),
+          // subtitle: Text(_formatCurrentTime()).small(),
           alignment: Alignment.center,
           leading: [
             OutlineButton(
@@ -528,16 +532,84 @@ class _EvaluationPageState extends State<EvaluationPage> {
                 commentDialog();
               },
               density: ButtonDensity.icon,
-              child: const Icon(BootstrapIcons.chatSquareText),
+              leading: isMobile ? null : Icon(BootstrapIcons.chatSquareText),
+              child: isMobile
+                  ? Icon(BootstrapIcons.chatSquareText)
+                  : Text("Comment"),
             ),
-            OutlineButton(
-              onPressed: () {
-                popover();
-              },
-              density: ButtonDensity.icon,
-              child: const Icon(RadixIcons.timer),
-            ),
+            if (isMobile) // Only show this button on mobile
+              OutlineButton(
+                onPressed: () {
+                  popover();
+                },
+                density: ButtonDensity.icon,
+                child: const Icon(RadixIcons.timer),
+              ),
           ],
+          child: Row(
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('${_formatTimeRange()} minutes'),
+                  Text(_formatCurrentTime()).small().muted()
+                ],
+              ),
+              if (!isMobile)
+                OutlineButton(
+                  size: ButtonSize.small,
+                  onPressed: () {
+                    _startTimer();
+                    _startRange();
+                  },
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Icon(RadixIcons.play),
+                      Text('Start '),
+                    ],
+                  ),
+                ),
+              if (!isMobile)
+                DestructiveButton(
+                  size: ButtonSize.small,
+                  onPressed: () {
+                    showDialog(
+                      context: context,
+                      builder: (context) {
+                        return AlertDialog(
+                          title: const Text(
+                              'Are you sure you want to stop evaluating?'),
+                          actions: [
+                            DestructiveButton(
+                              child: const Text('Cancel'),
+                              onPressed: () {
+                                Navigator.pop(context);
+                              },
+                            ),
+                            PrimaryButton(
+                              child: const Text('Stop'),
+                              onPressed: () {
+                                _stopTimer();
+                                _stopRange();
+                                Navigator.pop(context);
+                              },
+                            ),
+                          ],
+                        );
+                      },
+                    );
+                  },
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Icon(RadixIcons.stop),
+                      Text('Stop '),
+                    ],
+                  ),
+                )
+            ],
+          ).gap(8),
         ),
         const Divider(),
       ],
@@ -562,7 +634,6 @@ class _EvaluationPageState extends State<EvaluationPage> {
                     final teacherActivities = activities['teachers'] ?? [];
 
                     // Check screen size to determine layout
-                    bool isMobile = MediaQuery.of(context).size.width < 1000;
 
                     return isMobile
                         ? mobileScreen(studentActivities, teacherActivities)

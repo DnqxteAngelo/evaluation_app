@@ -102,7 +102,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Future<void> _fetchTeachers() async {
     final teachers = await _fetchSelect<Teacher>(
-      url: 'http://localhost/evaluation_app_api/teacher.php',
+      url: '${DatabaseURL.databaseURL}/teacher.php',
       body: {'operation': 'getTeacher'},
       fromJson: (json) => Teacher(
         teacherId: json['teacher_id'],
@@ -115,7 +115,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Future<void> _fetchColleges() async {
     final colleges = await _fetchSelect<College>(
-      url: 'http://localhost/evaluation_app_api/college.php',
+      url: '${DatabaseURL.databaseURL}/college.php',
       body: {'operation': 'getCollege'},
       fromJson: (json) => College(
         collegeId: json['college_id'],
@@ -128,7 +128,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Future<void> _fetchDepartments() async {
     final departments = await _fetchSelect<Department>(
-      url: 'http://localhost/evaluation_app_api/department.php',
+      url: '${DatabaseURL.databaseURL}/department.php',
       body: {'operation': 'getDepartment'},
       fromJson: (json) => Department(
         deptId: json['dept_id'],
@@ -140,7 +140,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Future<void> _fetchSemesters() async {
     final semesters = await _fetchSelect<Semester>(
-      url: 'http://localhost/evaluation_app_api/evaluation.php',
+      url: '${DatabaseURL.databaseURL}/evaluation.php',
       body: {'operation': 'getSemester'},
       fromJson: (json) => Semester(
         semesterId: json['sem_id'],
@@ -152,7 +152,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Future<void> _fetchSchoolYears() async {
     final schoolyears = await _fetchSelect<SchoolYear>(
-      url: 'http://localhost/evaluation_app_api/evaluation.php',
+      url: '${DatabaseURL.databaseURL}/evaluation.php',
       body: {'operation': 'getSchoolYear'},
       fromJson: (json) => SchoolYear(
         syId: json['sy_id'],
@@ -164,7 +164,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Future<void> _fetchPeriods() async {
     final periods = await _fetchSelect<Period>(
-      url: 'http://localhost/evaluation_app_api/evaluation.php',
+      url: '${DatabaseURL.databaseURL}/evaluation.php',
       body: {'operation': 'getPeriod'},
       fromJson: (json) => Period(
         periodId: json['period_id'],
@@ -176,7 +176,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Future<void> _fetchYears() async {
     final years = await _fetchSelect<Year>(
-      url: 'http://localhost/evaluation_app_api/evaluation.php',
+      url: '${DatabaseURL.databaseURL}/evaluation.php',
       body: {'operation': 'getYear'},
       fromJson: (json) => Year(
         yearId: json['year_id'],
@@ -189,7 +189,7 @@ class _ProfilePageState extends State<ProfilePage> {
   Future<int?> _addEvaluation() async {
     if (!_validateData()) return null;
 
-    final url = Uri.parse('http://localhost/evaluation_app_api/evaluation.php');
+    final url = Uri.parse('${DatabaseURL.databaseURL}/evaluation.php');
     final formattedDate = DateFormat('yyyy-MM-dd').format(_observationDate);
 
     final Map<String, dynamic> jsonData = {
@@ -681,7 +681,8 @@ class _ProfilePageState extends State<ProfilePage> {
                     SummaryField(
                       isMobile: true,
                       label: 'Date',
-                      value: formattedDate,
+                      value: formattedDate =
+                          DateFormat('MMMM d, y').format(_observationDate),
                     ),
                     const SizedBox(height: 24),
                     SummaryField(
@@ -776,7 +777,8 @@ class _ProfilePageState extends State<ProfilePage> {
                       SummaryField(
                         isMobile: false,
                         label: 'Date',
-                        value: formattedDate,
+                        value: formattedDate =
+                            DateFormat('MMMM d, y').format(_observationDate),
                       ),
                       const SizedBox(height: 24),
                       SummaryField(

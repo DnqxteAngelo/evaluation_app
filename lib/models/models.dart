@@ -1,3 +1,8 @@
+class DatabaseURL {
+  // static String databaseURL = "https://coc-studentinfo.net/gtp/api";
+  static String databaseURL = "http://localhost/evaluation_app_api";
+}
+
 class College {
   final int collegeId;
   final String collegeName;

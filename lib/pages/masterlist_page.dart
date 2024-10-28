@@ -50,7 +50,7 @@ class _MasterlistPageState extends State<MasterlistPage> {
 
   Future<void> fetchCollegeData() async {
     final response = await http.post(
-      Uri.parse('http://localhost/evaluation_app_api/college.php'),
+      Uri.parse('${DatabaseURL.databaseURL}/college.php'),
       body: {'operation': 'getCollege'},
     );
 
@@ -117,7 +117,7 @@ class _MasterlistPageState extends State<MasterlistPage> {
 
                   final response = await http.post(
                     Uri.parse(
-                        'http://localhost/evaluation_app_api/college.php'), // Update with your actual URL
+                        '${DatabaseURL.databaseURL}/college.php'), // Update with your actual URL
                     body: {
                       'operation': 'addCollege',
                       'json': json.encode(collegeData),
@@ -155,7 +155,7 @@ class _MasterlistPageState extends State<MasterlistPage> {
   Future<void> fetchTeacherData() async {
     final response = await http.post(
       Uri.parse(
-          'http://localhost/evaluation_app_api/teacher.php'), // Update with your actual URL
+          '${DatabaseURL.databaseURL}/teacher.php'), // Update with your actual URL
       body: {'operation': 'getTeacher'},
     );
 
@@ -195,7 +195,7 @@ class _MasterlistPageState extends State<MasterlistPage> {
 
   Future<void> _fetchColleges() async {
     final colleges = await _fetchSelect<College>(
-      url: 'http://localhost/evaluation_app_api/college.php',
+      url: '${DatabaseURL.databaseURL}/college.php',
       body: {'operation': 'getCollege'},
       fromJson: (json) => College(
         collegeId: json['college_id'],
@@ -347,7 +347,7 @@ class _MasterlistPageState extends State<MasterlistPage> {
                 };
 
                 final response = await http.post(
-                  Uri.parse('http://localhost/evaluation_app_api/teacher.php'),
+                  Uri.parse('${DatabaseURL.databaseURL}/teacher.php'),
                   body: {
                     'operation': 'addTeacher',
                     'json': json.encode(teacherData),
