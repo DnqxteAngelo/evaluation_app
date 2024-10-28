@@ -137,7 +137,7 @@ class _EvaluationPageState extends State<EvaluationPage> {
   }
 
   void _startRange() {
-    _range = Timer.periodic(const Duration(seconds: 1), (timer) async {
+    _range = Timer.periodic(const Duration(seconds: 120), (timer) async {
       // Add transactions for current time range if any activities are checked
       await _addTransactions();
 

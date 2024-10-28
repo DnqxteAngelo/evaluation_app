@@ -114,8 +114,8 @@ class _DashboardPageState extends State<DashboardPage> {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      // builder: (context) => ProfilePage(user: widget.user),
-                      builder: (context) => EvaluationPage(evalId: 1),
+                      builder: (context) => ProfilePage(user: widget.user),
+                      // builder: (context) => EvaluationPage(evalId: 1),
                     ),
                   );
                 },
