@@ -27,7 +27,7 @@ class ActivityTable extends StatelessWidget {
         Table(
           border: TableBorder.all(),
           columnWidths: const {
-            0: FixedColumnWidth(50)
+            0: FixedColumnWidth(60)
           }, // Set fixed width for time column
           children: [
             // Header Row
