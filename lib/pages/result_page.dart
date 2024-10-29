@@ -187,7 +187,7 @@ class _ResultPageState extends State<ResultPage> {
                                             ),
                                           ),
                                         ],
-                                      ).gap(4);
+                                      ).gap(2);
                               } else {
                                 return const Center(
                                     child: Text('No data found.'));

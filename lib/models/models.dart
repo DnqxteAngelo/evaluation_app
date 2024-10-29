@@ -163,11 +163,13 @@ class TeacherTable {
 }
 
 class EvaluationDetails {
+  final int evalId;
   final String teacherFullname;
   final String evalSubject;
   final String evalDate;
 
   EvaluationDetails({
+    required this.evalId,
     required this.teacherFullname,
     required this.evalSubject,
     required this.evalDate,
@@ -176,6 +178,7 @@ class EvaluationDetails {
   // Factory constructor to create an instance from JSON.
   factory EvaluationDetails.fromJson(Map<String, dynamic> json) {
     return EvaluationDetails(
+      evalId: json['eval_id'] ?? '0',
       teacherFullname: json['teacher_fullname'] ?? 'Unknown',
       evalSubject: json['eval_subject'] ?? 'N/A',
       evalDate: json['eval_date'] ?? 'N/A',

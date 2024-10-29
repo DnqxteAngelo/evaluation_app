@@ -38,6 +38,8 @@ class _EvaluationPageState extends State<EvaluationPage> {
 
   DateTime? _startTime;
 
+  bool timerStarted = false;
+
   @override
   void initState() {
     super.initState();
@@ -127,6 +129,7 @@ class _EvaluationPageState extends State<EvaluationPage> {
       setState(() {
         _currentTime =
             getPhilippineTime(); // Update to current Philippine time every second
+        timerStarted = true;
       });
 
       // Stop both timers after 90 minutes
@@ -189,6 +192,7 @@ class _EvaluationPageState extends State<EvaluationPage> {
     }
     setState(() {
       _currentTime = null;
+      timerStarted = false;
     });
   }
 
@@ -388,6 +392,7 @@ class _EvaluationPageState extends State<EvaluationPage> {
                 ).withPadding(vertical: 4),
                 Divider(),
                 DestructiveButton(
+                  enabled: timerStarted,
                   onPressed: () {
                     showDialog(
                       context: context,
@@ -395,13 +400,6 @@ class _EvaluationPageState extends State<EvaluationPage> {
                         return AlertDialog(
                           title: const Text(
                               'Are you sure you want to stop evaluating?'),
-                          // content: const Column(
-                          //   mainAxisSize: MainAxisSize.min,
-                          //   crossAxisAlignment: CrossAxisAlignment.start,
-                          //   children: [
-                          //     Text("This will restart your progress.")
-                          //   ],
-                          // ),
                           actions: [
                             DestructiveButton(
                               child: const Text('Cancel'),
@@ -573,6 +571,7 @@ class _EvaluationPageState extends State<EvaluationPage> {
               if (!isMobile)
                 DestructiveButton(
                   size: ButtonSize.small,
+                  enabled: timerStarted,
                   onPressed: () {
                     showDialog(
                       context: context,
@@ -764,14 +763,15 @@ class _EvaluationPageState extends State<EvaluationPage> {
                                               screenSize ? 4 : 6),
                                           child: Center(
                                             child: Checkbox(
-                                              state: _studentChecked[
-                                                  index], // Updated to 'value'
-                                              onChanged: (value) {
-                                                setState(() {
-                                                  _studentChecked[index] =
-                                                      value;
-                                                });
-                                              },
+                                              state: _studentChecked[index],
+                                              onChanged: timerStarted
+                                                  ? (value) {
+                                                      setState(() {
+                                                        _studentChecked[index] =
+                                                            value;
+                                                      });
+                                                    }
+                                                  : null, // Disable onChanged if timer hasn't started
                                             ),
                                           ),
                                         ),
@@ -899,12 +899,14 @@ class _EvaluationPageState extends State<EvaluationPage> {
                                             child: Checkbox(
                                               state: _teacherChecked[
                                                   index], // Updated to 'value'
-                                              onChanged: (value) {
-                                                setState(() {
-                                                  _teacherChecked[index] =
-                                                      value;
-                                                });
-                                              },
+                                              onChanged: timerStarted
+                                                  ? (value) {
+                                                      setState(() {
+                                                        _teacherChecked[index] =
+                                                            value;
+                                                      });
+                                                    }
+                                                  : null,
                                             ),
                                           ),
                                         ),
@@ -1034,11 +1036,14 @@ class _EvaluationPageState extends State<EvaluationPage> {
                                         child: Center(
                                           child: Checkbox(
                                             state: _studentChecked[index],
-                                            onChanged: (value) {
-                                              setState(() {
-                                                _studentChecked[index] = value;
-                                              });
-                                            },
+                                            onChanged: timerStarted
+                                                ? (value) {
+                                                    setState(() {
+                                                      _studentChecked[index] =
+                                                          value;
+                                                    });
+                                                  }
+                                                : null,
                                           ),
                                         ),
                                       ),
@@ -1159,11 +1164,14 @@ class _EvaluationPageState extends State<EvaluationPage> {
                                         child: Center(
                                           child: Checkbox(
                                             state: _teacherChecked[index],
-                                            onChanged: (value) {
-                                              setState(() {
-                                                _teacherChecked[index] = value;
-                                              });
-                                            },
+                                            onChanged: timerStarted
+                                                ? (value) {
+                                                    setState(() {
+                                                      _teacherChecked[index] =
+                                                          value;
+                                                    });
+                                                  }
+                                                : null,
                                           ),
                                         ),
                                       ),

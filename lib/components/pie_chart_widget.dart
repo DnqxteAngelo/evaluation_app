@@ -1,3 +1,5 @@
+// ignore_for_file: unnecessary_null_comparison
+
 import 'package:evaluation_app/models/models.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -27,18 +29,18 @@ class PieChartWidget extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Expanded(
-                    child: _buildChartSection(
-                      'Student Activities',
-                      studentActivities,
-                      isDesktop,
+                    child: _ChartSection(
+                      title: 'Student Activities',
+                      entries: studentActivities,
+                      isDesktop: isDesktop,
                     ),
                   ),
                   if (isDesktop) const SizedBox(width: 32),
                   Expanded(
-                    child: _buildChartSection(
-                      'Teacher Activities',
-                      teacherActivities,
-                      isDesktop,
+                    child: _ChartSection(
+                      title: 'Teacher Activities',
+                      entries: teacherActivities,
+                      isDesktop: isDesktop,
                     ),
                   ),
                 ],
@@ -46,16 +48,16 @@ class PieChartWidget extends StatelessWidget {
             : SingleChildScrollView(
                 child: Column(
                   children: [
-                    _buildChartSection(
-                      'Student Activities',
-                      studentActivities,
-                      isDesktop,
+                    _ChartSection(
+                      title: 'Student Activities',
+                      entries: studentActivities,
+                      isDesktop: isDesktop,
                     ),
                     const SizedBox(height: 32),
-                    _buildChartSection(
-                      'Teacher Activities',
-                      teacherActivities,
-                      isDesktop,
+                    _ChartSection(
+                      title: 'Teacher Activities',
+                      entries: teacherActivities,
+                      isDesktop: isDesktop,
                     ),
                   ],
                 ),
@@ -63,26 +65,47 @@ class PieChartWidget extends StatelessWidget {
       },
     );
   }
+}
 
-  Widget _buildChartSection(
-      String title, List<MapEntry<Activity, int>> entries, bool isDesktop) {
-    final totalTally = entries.fold<int>(
-        0, (previousValue, entry) => previousValue + entry.value);
+class _ChartSection extends StatefulWidget {
+  final String title;
+  final List<MapEntry<Activity, int>> entries;
+  final bool isDesktop;
+
+  const _ChartSection({
+    Key? key,
+    required this.title,
+    required this.entries,
+    required this.isDesktop,
+  }) : super(key: key);
+
+  @override
+  __ChartSectionState createState() => __ChartSectionState();
+}
+
+class __ChartSectionState extends State<_ChartSection> {
+  int? _hoveredIndex;
+
+  @override
+  Widget build(BuildContext context) {
+    final totalTally = widget.entries
+        .fold<int>(0, (previousValue, entry) => previousValue + entry.value);
+
+    // Filter entries to exclude 0% sections for the chart
+    final filteredEntries =
+        widget.entries.where((entry) => entry.value > 0).toList();
 
     return Padding(
       padding: const EdgeInsets.all(16.0),
-      child: isDesktop
+      child: widget.isDesktop
           ? Row(
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Pie Chart
                 Column(
                   children: [
-                    Text(title).bold(),
-                    const SizedBox(
-                      height: 10,
-                    ),
+                    Text(widget.title).bold(),
+                    const SizedBox(height: 10),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -92,16 +115,36 @@ class PieChartWidget extends StatelessWidget {
                           width: 300,
                           child: PieChart(
                             PieChartData(
-                              sections: _generateSections(entries, totalTally),
+                              sections: _generateSections(
+                                  filteredEntries, totalTally),
                               centerSpaceRadius: 50,
                               sectionsSpace: 2,
                               borderData: FlBorderData(show: false),
+                              pieTouchData: PieTouchData(
+                                touchCallback: (event, response) {
+                                  setState(() {
+                                    if (response != null &&
+                                        response.touchedSection != null) {
+                                      final touchedIndex = response
+                                          .touchedSection!.touchedSectionIndex;
+                                      if (touchedIndex != null &&
+                                          touchedIndex <
+                                              filteredEntries.length) {
+                                        _hoveredIndex = touchedIndex;
+                                      } else {
+                                        _hoveredIndex = null;
+                                      }
+                                    } else {
+                                      _hoveredIndex = null;
+                                    }
+                                  });
+                                },
+                              ),
                             ),
                           ),
                         ),
                         const SizedBox(width: 16),
-                        // Legend beside the chart
-                        _buildLegend(entries),
+                        _buildLegend(widget.entries),
                       ],
                     ),
                   ],
@@ -111,26 +154,41 @@ class PieChartWidget extends StatelessWidget {
           : Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(title).bold(),
-                const SizedBox(
-                  height: 10,
-                ),
-                // Pie Chart
+                Text(widget.title).bold(),
+                const SizedBox(height: 10),
                 SizedBox(
                   height: 200,
                   width: 200,
                   child: PieChart(
                     PieChartData(
-                      sections: _generateSections(entries, totalTally),
+                      sections: _generateSections(filteredEntries, totalTally),
                       centerSpaceRadius: 50,
                       sectionsSpace: 2,
                       borderData: FlBorderData(show: false),
+                      pieTouchData: PieTouchData(
+                        touchCallback: (event, response) {
+                          setState(() {
+                            if (response != null &&
+                                response.touchedSection != null) {
+                              final touchedIndex =
+                                  response.touchedSection!.touchedSectionIndex;
+                              if (touchedIndex != null &&
+                                  touchedIndex < filteredEntries.length) {
+                                _hoveredIndex = touchedIndex;
+                              } else {
+                                _hoveredIndex = null;
+                              }
+                            } else {
+                              _hoveredIndex = null;
+                            }
+                          });
+                        },
+                      ),
                     ),
                   ),
                 ),
                 const SizedBox(height: 16),
-                // Legend below the chart
-                _buildLegend(entries),
+                _buildLegend(widget.entries),
               ],
             ),
     );
@@ -138,16 +196,18 @@ class PieChartWidget extends StatelessWidget {
 
   List<PieChartSectionData> _generateSections(
       List<MapEntry<Activity, int>> entries, int totalTally) {
-    return entries.map((entry) {
-      final activity = entry.key;
-      final int value = entry.value;
+    return entries.asMap().entries.map((entry) {
+      final index = entry.key;
+      final activity = entry.value.key;
+      final int value = entry.value.value;
       final double percentage = (value / totalTally) * 100;
 
       return PieChartSectionData(
         value: percentage,
-        title: '',
+        title:
+            _hoveredIndex == index ? '${percentage.toStringAsFixed(1)}%' : '',
         color: _getColor(activity.activityName),
-        radius: 50,
+        radius: _hoveredIndex == index ? 60 : 50,
         titleStyle: const TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.bold,

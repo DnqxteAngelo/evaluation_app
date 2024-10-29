@@ -1,4 +1,5 @@
 import 'package:evaluation_app/components/activity_summary.dart';
+import 'package:evaluation_app/components/activity_table.dart';
 import 'package:evaluation_app/components/pie_chart_widget.dart';
 import 'package:evaluation_app/models/models.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
@@ -15,6 +16,7 @@ class RecordsPage extends StatefulWidget {
 class _RecordsPageState extends State<RecordsPage> {
   final Map<Activity, int> _activityTallies = {};
   EvaluationDetails? _evaluationDetails;
+  late Future<Map<String, dynamic>> _activityData;
 
   List<Teacher> _teachers = [];
   List<Semester> _semesters = [];
@@ -34,6 +36,18 @@ class _RecordsPageState extends State<RecordsPage> {
     _initializeData();
   }
 
+  Future<Map<String, dynamic>> fetchActivityData(int evalId) async {
+    final url =
+        '${DatabaseURL.databaseURL}/transaction.php?operation=getTransactions&evalId=$evalId';
+    final response = await http.get(Uri.parse(url));
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to load activity data');
+    }
+  }
+
   Future<void> _initializeData() async {
     setState(() => _isLoading = true);
     try {
@@ -42,6 +56,7 @@ class _RecordsPageState extends State<RecordsPage> {
         _fetchSchoolYears(),
         _fetchPeriods(),
         _fetchSemesters(),
+        _activityData = fetchActivityData(0),
       ]);
     } catch (e) {
       setState(() => _errorMessage = 'Failed to load data. Please try again.');
@@ -442,6 +457,8 @@ class _RecordsPageState extends State<RecordsPage> {
                     onPressed: () {
                       fetchActivityTallies();
                       _loadEvaluationDetails();
+                      _activityData =
+                          fetchActivityData(_evaluationDetails!.evalId);
                     },
                     child: const Text('Save Changes'),
                   ),
@@ -539,7 +556,75 @@ class _RecordsPageState extends State<RecordsPage> {
                         ],
                       ),
                 const SizedBox(height: 16),
-                // Activity Tallies or No Records Message
+                FutureBuilder<Map<String, dynamic>>(
+                  future: _activityData,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
+                    } else if (snapshot.hasError) {
+                      return Center(child: Text('Error: ${snapshot.error}'));
+                    } else if (snapshot.hasData) {
+                      // Use empty lists if data is null
+                      final studentHeaders = List<String>.from(
+                          snapshot.data!['studentHeaders'] ?? []);
+                      final teacherHeaders = List<String>.from(
+                          snapshot.data!['teacherHeaders'] ?? []);
+                      final studentData = List<List<int?>>.from(
+                          (snapshot.data!['studentData'] ?? [])
+                              .map((row) => List<int?>.from(row ?? [])));
+                      final teacherData = List<List<int?>>.from(
+                          (snapshot.data!['teacherData'] ?? [])
+                              .map((row) => List<int?>.from(row ?? [])));
+                      final timeRanges =
+                          List<String>.from(snapshot.data!['timeRanges'] ?? []);
+
+                      return isMobile
+                          ? Column(
+                              children: [
+                                ActivityTable(
+                                  title: 'Student Activities',
+                                  data: studentData,
+                                  headers: studentHeaders,
+                                  timeRanges: timeRanges,
+                                ),
+                                const SizedBox(
+                                    height: 20), // Add space between tables
+                                ActivityTable(
+                                  title: 'Teacher Activities',
+                                  data: teacherData,
+                                  headers: teacherHeaders,
+                                  timeRanges: timeRanges,
+                                ),
+                              ],
+                            )
+                          : Row(
+                              children: [
+                                Expanded(
+                                  child: ActivityTable(
+                                    title: 'Student Activities',
+                                    data: studentData,
+                                    headers: studentHeaders,
+                                    timeRanges: timeRanges,
+                                  ),
+                                ),
+                                const SizedBox(
+                                    width: 20), // Add space between tables
+                                Expanded(
+                                  child: ActivityTable(
+                                    title: 'Teacher Activities',
+                                    data: teacherData,
+                                    headers: teacherHeaders,
+                                    timeRanges: timeRanges,
+                                  ),
+                                ),
+                              ],
+                            ).gap(2);
+                    } else {
+                      return const Center(child: Text('No data found.'));
+                    }
+                  },
+                ),
+                const SizedBox(height: 16),
                 _activityTallies.isNotEmpty
                     ? Column(
                         children: [

@@ -62,11 +62,11 @@ class ActivityTable extends StatelessWidget {
                   ),
                   ...data[i].map((cell) => TableCell(
                         child: Container(
+                          height: 32.0, // Set a fixed height for the cell
                           color: cell != null
                               ? Colors.redAccent
                               : Colors.transparent,
                           alignment: Alignment.center,
-                          child: Text(cell?.toString() ?? ""),
                         ),
                       )),
                 ],
