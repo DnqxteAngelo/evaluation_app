@@ -19,7 +19,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return ShadcnApp(
       debugShowCheckedModeBanner: false,
-      title: 'My App',
+      title: 'GTP Teacher Evaluation Tool',
       home: MyHomePage(),
       theme: ThemeData(
         colorScheme: ColorSchemes.lightZinc(),
